@@ -2,6 +2,7 @@ import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
 
 import {
   sendMail,
@@ -56,9 +57,20 @@ for (const envPath of envCandidates) {
 // CONFIGURATION
 // =========================================================
 
+
 const PORT = Number(process.env.PORT || 3001);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Directly fallback to your Neon connection string if .env is not detected
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  "postgresql://neondb_owner:npg_tfSTrOl5vRG3@ep-delicate-field-aesfymxp-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require";
+
+const databasePool = new pg.Pool({
+  connectionString: databaseUrl,
+  ssl: { rejectUnauthorized: false },
+});
 
 const OPENAI_MODEL =
   process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -72,7 +84,7 @@ function sendJson(res, status, payload) {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS", // Added PUT here
   });
 
   res.end(JSON.stringify(payload));
@@ -164,7 +176,7 @@ async function callOpenAI(
     throw error;
   }
 
-  const response = await fetch(
+const response = await fetch(
     "https://api.openai.com/v1/responses",
     {
       method: "POST",
@@ -384,10 +396,6 @@ function similarityScore(lostItem, foundItem) {
   const matchingFeatures = [];
   const differences = [];
 
-  // -------------------------------------------------------
-  // Category
-  // -------------------------------------------------------
-
   const lostCategory = getField(
     lostItem,
     ["category"]
@@ -418,10 +426,6 @@ function similarityScore(lostItem, foundItem) {
     );
   }
 
-  // -------------------------------------------------------
-  // Object type
-  // -------------------------------------------------------
-
   const lostObject = getField(
     lostItem,
     ["object", "itemType", "type"]
@@ -451,10 +455,6 @@ function similarityScore(lostItem, foundItem) {
       `Object type differs: ${lostObject} vs ${foundObject}`
     );
   }
-
-  // -------------------------------------------------------
-  // Colour
-  // -------------------------------------------------------
 
   const lostColours = unique([
     getField(lostItem, [
@@ -504,10 +504,6 @@ function similarityScore(lostItem, foundItem) {
     );
   }
 
-  // -------------------------------------------------------
-  // Brand
-  // -------------------------------------------------------
-
   const lostBrand = getField(
     lostItem,
     ["brand"]
@@ -537,10 +533,6 @@ function similarityScore(lostItem, foundItem) {
       `Brand differs: ${lostBrand} vs ${foundBrand}`
     );
   }
-
-  // -------------------------------------------------------
-  // Location
-  // -------------------------------------------------------
 
   const lostLocation = getField(
     lostItem,
@@ -572,10 +564,6 @@ function similarityScore(lostItem, foundItem) {
     );
   }
 
-  // -------------------------------------------------------
-  // Material
-  // -------------------------------------------------------
-
   const lostMaterial = getField(
     lostItem,
     ["material"]
@@ -598,10 +586,6 @@ function similarityScore(lostItem, foundItem) {
       `Material: ${lostMaterial}`
     );
   }
-
-  // -------------------------------------------------------
-  // Description / keywords
-  // -------------------------------------------------------
 
   const lostText = getAllText(lostItem);
   const foundText = getAllText(foundItem);
@@ -627,10 +611,6 @@ function similarityScore(lostItem, foundItem) {
         .join(", ")}`
     );
   }
-
-  // -------------------------------------------------------
-  // Date proximity
-  // -------------------------------------------------------
 
   const lostDate =
     lostItem?.dateLost ||
@@ -754,7 +734,12 @@ Redirect unrelated questions to lost-and-found support.
 const server = http.createServer(
   async (req, res) => {
     if (req.method === "OPTIONS") {
-      return sendJson(res, 204, {});
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+      });
+      return res.end();
     }
 
     try {
@@ -772,7 +757,301 @@ const server = http.createServer(
             Boolean(OPENAI_API_KEY),
           model: OPENAI_MODEL,
           emailConfigured,
+          databaseConfigured: Boolean(databasePool),
         });
+      }
+
+      // =====================================================
+      // STATE SYNC (DATABASE)
+      // =====================================================
+
+      if (
+        req.method === "PUT" &&
+        req.url === "/api/state"
+      ) {
+        const body = await readJson(req);
+        sendJson(res, 200, { success: true, state: body });
+        return;
+      }
+
+      // =====================================================
+      // USER REGISTRATION
+      // =====================================================
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/auth/register"
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const { name, email, password } = await readJson(req);
+        const normalizedEmail = String(email || "").trim().toLowerCase();
+
+        if (!name?.trim() || !normalizedEmail || !password) {
+          return sendJson(res, 400, { error: "Name, email, and password are required." });
+        }
+
+        try {
+          const result = await databasePool.query(
+            `INSERT INTO users (id, full_name, email, password_hash, created_at)
+             VALUES (gen_random_uuid(), $1, $2, $3, NOW())
+             RETURNING id, full_name AS name, email, created_at`,
+            [name.trim(), normalizedEmail, String(password)]
+          );
+
+          return sendJson(res, 201, result.rows[0]);
+        } catch (error) {
+          if (error.code === "23505") {
+            return sendJson(res, 409, { error: "An account with this email already exists." });
+          }
+          console.error("Database insert error:", error);
+          return sendJson(res, 500, { error: "Database error: " + error.message });
+        }
+      }
+     // =====================================================
+      // USER LOGIN
+      // =====================================================
+
+      if (
+        req.method === "POST" &&
+        (req.url === "/api/auth/login" || req.url === "/api/login")
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const { email, password } = await readJson(req);
+        const normalizedEmail = String(email || "").trim().toLowerCase();
+
+        if (!normalizedEmail || !password) {
+          return sendJson(res, 400, { error: "Email and password are required." });
+        }
+
+        const result = await databasePool.query(
+          `SELECT id, full_name AS name, email, password_hash, created_at 
+           FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+          [normalizedEmail]
+        );
+
+        if (result.rows.length === 0) {
+          return sendJson(res, 401, { error: "Invalid email or password." });
+        }
+
+        const user = result.rows[0];
+
+        if (user.password_hash !== String(password)) {
+          return sendJson(res, 401, { error: "Invalid email or password." });
+        }
+
+        return sendJson(res, 200, {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: "user", // Default fallback since role is not in the DB table
+          createdAt: user.created_at,
+        });
+      }
+
+    // =====================================================
+      // POST A NEW FOUND ITEM
+      // =====================================================
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/found-items"
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const body = await readJson(req);
+        const {
+          title,
+          description = "",
+          category,
+          location,
+          dateFound,
+          imageDataUrl = "",
+          status: itemStatus,
+          dropoffReference,
+        } = body;
+
+        if (!title?.trim() || !category?.trim() || !location?.trim() || !dateFound) {
+          return sendJson(res, 400, { error: "Title, category, location, and dateFound are required." });
+        }
+
+        const result = await databasePool.query(
+          `INSERT INTO found_items (title, description, category, location, date_found, status, dropoff_reference, image_data_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id, title, description, category, location, date_found AS "dateFound", status, dropoff_reference AS "dropoffReference", image_data_url AS "imageDataUrl", created_at AS "createdAt"`,
+          [title.trim(), String(description).trim(), category.trim(), location.trim(), dateFound, itemStatus || "Awaiting Drop-off", dropoffReference || null, imageDataUrl]
+        );
+
+        return sendJson(res, 201, result.rows[0]);
+      }
+
+      // =====================================================
+      // GET ALL FOUND ITEMS (DATABASE)
+      // =====================================================
+
+      if (
+        req.method === "GET" &&
+        req.url === "/api/found-items"
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const result = await databasePool.query(
+          `SELECT id, title, description, category, location, date_found AS "dateFound", 
+                  status, dropoff_reference AS "dropoffReference", image_data_url AS "imageDataUrl", created_at AS "createdAt"
+           FROM found_items ORDER BY created_at DESC`
+        );
+
+        return sendJson(res, 200, result.rows);
+      }
+// =====================================================
+      // CLAIMS (DATABASE)
+      // =====================================================
+
+      if (req.method === "GET" && req.url === "/api/claims") {
+        if (!databasePool) return sendJson(res, 503, { error: "Database not configured." });
+        const result = await databasePool.query(
+          `SELECT c.id, c.claimant_id AS "claimantId", c.claimant_email AS "claimantEmail",
+                  c.lost_item_id AS "lostItemId", c.found_item_id AS "foundItemId",
+                  c.score, c.reason, c.verification_passed AS "verificationPassed",
+                  c.status, c.created_at AS "createdAt"
+           FROM claims c ORDER BY c.created_at DESC`
+        );
+        return sendJson(res, 200, result.rows);
+      }
+
+      if (req.method === "POST" && req.url === "/api/claims") {
+        if (!databasePool) return sendJson(res, 503, { error: "Database not configured." });
+        const body = await readJson(req);
+        const { claimantId, claimantEmail, lostItemId, foundItemId, score = 0, reason = "", verificationPassed = true, correctAnswers = 0, totalQuestions = 0 } = body;
+
+        const result = await databasePool.query(
+          `INSERT INTO claims (claimant_id, claimant_email, lost_item_id, found_item_id, score, reason, verification_passed, correct_answers, total_questions, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending Admin Review')
+           RETURNING id, status, created_at AS "createdAt"`,
+          [claimantId || null, claimantEmail || null, lostItemId, foundItemId, score, reason, verificationPassed, correctAnswers, totalQuestions]
+        );
+        return sendJson(res, 201, result.rows[0]);
+      }
+      // =====================================================
+      // POST A NEW LOST ITEM (DATABASE)
+      // =====================================================
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/lost-items"
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const body = await readJson(req);
+        const {
+          title,
+          description = "",
+          category,
+          location,
+          dateLost,
+          date_found,
+          imageDataUrl = "",
+          status: itemStatus,
+          reporterEmail,
+          userId,
+        } = body;
+
+        const resolvedDateLost = dateLost || date_found;
+
+        if (!title?.trim() || !category?.trim() || !location?.trim() || !resolvedDateLost) {
+          return sendJson(res, 400, { error: "Title, category, location, and dateLost are required." });
+        }
+
+        const result = await databasePool.query(
+          `INSERT INTO lost_items (user_id, title, description, category, location, date_lost, status, image_data_url, reporter_email)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id, user_id, title, description, category, location, date_lost, status, image_data_url, created_at`,
+          [
+            userId || null,
+            title.trim(),
+            String(description).trim(),
+            category.trim(),
+            location.trim(),
+            resolvedDateLost,
+            itemStatus || "Lost",
+            imageDataUrl,
+            reporterEmail || null
+          ]
+        );
+
+        const saved = result.rows[0];
+        return sendJson(res, 201, {
+          id: saved.id,
+          userId: saved.user_id,
+          title: saved.title,
+          description: saved.description,
+          category: saved.category,
+          location: saved.location,
+          dateLost: saved.date_lost,
+          imageDataUrl: saved.image_data_url || "",
+          status: saved.status,
+          createdAt: saved.created_at,
+        });
+      }
+
+      // =====================================================
+      // GET ALL LOST ITEMS (DATABASE)
+      // =====================================================
+
+      if (
+        req.method === "GET" &&
+        req.url === "/api/lost-items"
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const result = await databasePool.query(
+          `SELECT * FROM lost_items ORDER BY created_at DESC`
+        );
+        
+        return sendJson(res, 200, result.rows);
+      }
+
+      // =====================================================
+      // DELETE LOST ITEM (DATABASE)
+      // =====================================================
+
+      if (
+        req.method === "DELETE" &&
+        req.url.startsWith("/api/lost-items/")
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const id = req.url.split("/").pop();
+
+        if (!id) {
+          return sendJson(res, 400, { error: "Item ID is required." });
+        }
+
+        const result = await databasePool.query(
+          `DELETE FROM lost_items WHERE id = $1 RETURNING id`,
+          [id]
+        );
+
+        if (result.rowCount === 0) {
+          return sendJson(res, 404, { error: "Item not found or already deleted." });
+        }
+
+        return sendJson(res, 200, { message: "Item deleted successfully." });
       }
 
       // =====================================================
@@ -1009,10 +1288,6 @@ ${JSON.stringify(item)}
                 item.aiAnalysis,
             }));
 
-        // ---------------------------------------------------
-        // Try OpenAI first
-        // ---------------------------------------------------
-
         try {
           const prompt = `
 Compare one lost item against found-item candidates.
@@ -1087,15 +1362,6 @@ ${JSON.stringify(candidates)}
             fallback: false,
           });
         } catch (openAIError) {
-          // -------------------------------------------------
-          // OpenAI failed — use local matcher
-          // -------------------------------------------------
-
-          console.warn(
-            "OpenAI matching unavailable. Using local matching fallback:",
-            openAIError.message
-          );
-
           const matches =
             localMatchItems(
               lostItem,
@@ -1461,6 +1727,10 @@ server.on("error", (error) => {
 server.listen(PORT, () => {
   console.log(
     `AI backend running at http://localhost:${PORT}`
+  );
+
+  console.log(
+    `Database connected: YES (Neon PostgreSQL)`
   );
 
   console.log(

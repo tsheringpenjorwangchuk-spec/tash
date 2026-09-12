@@ -1,7 +1,6 @@
 // Demo data adapter.
-// The app intentionally uses localStorage until the MongoDB teammate finishes the database.
-// Keep page code behind this module so the storage implementation can later be replaced
-// by REST API calls without changing the claim workflow or UI structure.
+// The remaining client-only workflow data uses localStorage.
+// Persistent users and lost-item reports are written through the Neon REST API.
 
 export const KEYS = {
   users: "users",

@@ -1,6 +1,6 @@
-# Lost & Found Management System — Complete Workflow — Database-Ready Demo
+# Lost & Found Management System — Neon Database Integration
 
-This build contains the complete application flow except the real MongoDB persistence layer. It is ready to demonstrate now using browser localStorage, while the database teammate can integrate MongoDB later.
+This build uses Neon PostgreSQL for user registration and lost-item report persistence. Browser localStorage remains a local workflow cache for the existing matching and claims screens.
 
 ## Included features
 
@@ -23,7 +23,7 @@ This build contains the complete application flow except the real MongoDB persis
 - Lost/found report management
 - Admin users page
 - Responsive improved user and admin dashboards
-- MongoDB schema and API handoff document
+- Neon PostgreSQL schema and API integration
 
 ## Run the frontend
 
@@ -60,6 +60,8 @@ Copy `.env.example` to `.env` and add your own key. The server accepts `.env` ei
 OPENAI_API_KEY=your_key_here
 OPENAI_MODEL=gpt-4.1-mini
 PORT=3001
+DATABASE_URL=postgresql://username:password@host:5432/database
+DATABASE_SSL=true
 ```
 
 Never share or commit the real key.
@@ -125,21 +127,21 @@ account) so the system knows who to notify.
 
 ## Database status
 
-MongoDB is intentionally not included yet. All demo data is stored in browser localStorage through `src/services/store.js` and existing page storage calls. The exact MongoDB collection designs, REST endpoint plan, security requirements, and integration steps are documented at:
+Neon PostgreSQL now persists user registrations and lost-item reports. The remaining workflow data is stored in browser localStorage through `src/services/store.js` and existing page storage calls. The Neon schema and REST endpoint plan are documented at:
 
-`server/database/MONGODB_INTEGRATION.md`
+`server/database/NEON_INTEGRATION.md`
 
 The final intended architecture is:
 
 ```text
 React frontend
       ↓
-Node/Express REST API
+Node REST API
    ↙       ↘
-MongoDB    OpenAI API
+Neon PostgreSQL    OpenAI API
 ```
 
-Do not treat localStorage as production persistence. It is only the temporary demonstration layer until MongoDB is integrated.
+Do not treat localStorage as production persistence. It is only the temporary workflow cache for data that has not yet been moved to Neon.
 
 ## Demo verification and collection-code flow
 
@@ -174,7 +176,7 @@ A found item is not eligible for AI matching immediately after a finder reports 
 7. After ownership verification and admin claim approval, a collection code is issued to the owner.
 8. Admin checks the code during collection and marks the item **Collected**.
 
-When MongoDB is integrated, the same fields should be persisted: `dropoffReference`, `status`, `receivedAt`, `receivedBy`, and the existing claim/collection fields.
+When the remaining workflow is integrated with Neon, the same fields should be persisted: `dropoffReference`, `status`, `receivedAt`, `receivedBy`, and the existing claim/collection fields.
 
 ## Final UI clarity pass
 A final global clarity layer is applied from `src/styles/final-clarity.css` so all user/admin pages use high-contrast dark text on white/light cards, consistent blue/purple actions, readable form controls, and clear status panels. This styling layer is intentionally imported after page styles to prevent legacy dark-theme rules from causing white-on-white text.
@@ -183,7 +185,7 @@ A final global clarity layer is applied from `src/styles/final-clarity.css` so a
 The app now imports `src/styles/hard-clear.css` last from `src/main.jsx`. This is intentional: it overrides older glass/dark page styles with solid, readable surfaces across every route. Navigation uses a solid navy background with white labels; page cards are white; headings and form text are dark navy; input fields have visible white backgrounds and borders.
 
 ## Final attractive UI build
-This build uses a solid high-contrast visual system: navy navigation, white cards, dark text, bold blue/purple/green/red buttons, emoji cues, clear form controls and status badges. The workflow remains no-database/localStorage so MongoDB can be integrated later through the existing server adapter boundary.
+This build uses a solid high-contrast visual system: navy navigation, white cards, dark text, bold blue/purple/green/red buttons, emoji cues, clear form controls and status badges. Neon persistence is used for users and lost-item reports; localStorage remains the temporary cache for the remaining workflow screens.
 
 ## Final light UI build
 This package includes `src/styles/light-final.css`, loaded last to keep every screen light, readable and consistent. The app uses white/pastel cards, dark text, light navigation, and restrained solid action buttons.

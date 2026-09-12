@@ -21,8 +21,9 @@ function ReportLostItem() {
     location: "",
     dateLost: "",
     imageDataUrl: "",
-    reporterEmail: getCurrentUserEmail(),
+    reporterEmail: getCurrentUserEmail() || "",
   });
+  
   const [analysis, setAnalysis] = useState(null);
   const [verificationAnswers, setVerificationAnswers] = useState({});
   const [analysing, setAnalysing] = useState(false);
@@ -56,108 +57,91 @@ function ReportLostItem() {
     }
   }
 
-const handleImageChange = async (e) => {
-  const file = e.target.files?.[0];
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
 
-  setAnalysis(null);
-  setVerificationAnswers({});
-  setError("");
+    setAnalysis(null);
+    setVerificationAnswers({});
+    setError("");
 
-  if (!file) {
-    setItem((current) => ({
-      ...current,
-      imageDataUrl: "",
-    }));
-    return;
-  }
-
-  if (!file.type.startsWith("image/")) {
-    setError("Please select a valid image file.");
-    return;
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    setError("Image must be smaller than 5 MB.");
-    return;
-  }
-
-  try {
-    const dataUrl = await fileToDataUrl(file);
-
-    console.log("IMAGE SELECTED:", {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      dataUrlLength: dataUrl?.length,
-      startsCorrectly: dataUrl?.startsWith("data:image/"),
-    });
-
-    if (!dataUrl || !dataUrl.startsWith("data:image/")) {
-      throw new Error(
-        "The selected image could not be converted correctly."
-      );
-    }
-
-    setItem((current) => ({
-      ...current,
-      imageDataUrl: dataUrl,
-    }));
-
-    await runPhotoAnalysis(dataUrl);
-  } catch (err) {
-    console.error("IMAGE UPLOAD ERROR:", err);
-    setError(`Image upload failed: ${err.message}`);
-  }
-};
-
-  // Generate moderately specific ownership verification questions.
-  // The owner creates the private answers when reporting the lost item, and the claimant
-  // must later reproduce all three answers before a claim can go to admin review.
- const simpleQuestions = Array.isArray(analysis?.privateVerificationQuestions)
-  ? analysis.privateVerificationQuestions
-  : [];
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!item.title || !item.description || !item.category || !item.location || !item.dateLost || !item.reporterEmail) {
-      setError("Please complete all fields.");
-      return;
-    }
-    if (analysing) {
-      setError("Please wait for AI image analysis to finish before submitting.");
-      return;
-    }
-    if (item.imageDataUrl && !analysis) {
-      setError("Please complete AI image analysis before submitting this photo report.");
-      return;
-    }
-    if (simpleQuestions.some((q) => !verificationAnswers[q]?.trim())) {
-      setError("Please answer all private verification questions.");
+    if (!file) {
+      setItem((current) => ({
+        ...current,
+        imageDataUrl: "",
+      }));
       return;
     }
 
-    const existingItems = JSON.parse(localStorage.getItem("lostItems") || "[]");
-    const newItem = {
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be smaller than 5 MB.");
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      
+      setItem((current) => ({
+        ...current,
+        imageDataUrl: dataUrl,
+      }));
+
+      await runPhotoAnalysis(dataUrl);
+    } catch (err) {
+      console.error("IMAGE UPLOAD ERROR:", err);
+      setError(`Image upload failed: ${err.message}`);
+    }
+  };
+
+  const simpleQuestions = Array.isArray(analysis?.privateVerificationQuestions)
+    ? analysis.privateVerificationQuestions
+    : [];
+
+  // ==========================================
+  // CORRECTED SUBMIT FUNCTION
+  // ==========================================
+  const handleSubmit = async (e) => {
+    e.preventDefault(); 
+    setError("");
+
+    // Read current user session
+    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+
+    const payload = {
       ...item,
-      id: Date.now().toString(),
-      status: "Searching",
-      aiAnalysis: analysis,
-      privateVerification: simpleQuestions.map((question) => ({
-        question,
-        answer: verificationAnswers[question].trim(),
+      userId: currentUser?.id || null,
+      aiAnalysis: analysis || {},
+      privateVerification: Object.entries(verificationAnswers).map(([q, a]) => ({
+        question: q,
+        answer: a,
       })),
-      createdAt: new Date().toISOString(),
     };
-    existingItems.push(newItem);
-    localStorage.setItem("lostItems", JSON.stringify(existingItems));
 
-    // Fire-and-forget: if this new lost item already matches an available found
-    // item, email the reporter right away instead of making them check manually.
-    checkAndNotifyForNewLostItem(newItem, aiApi.matchItems);
+    try {
+      const response = await fetch("http://localhost:3001/api/lost-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), 
+      });
 
-    alert("Lost item reported successfully!");
-    navigate("/view-lost-items");
+      if (response.ok) {
+        const savedItem = await response.json();
+        checkAndNotifyForNewLostItem(savedItem, aiApi.matchItems);
+
+        alert("Lost item reported successfully!");
+        navigate("/view-lost-items"); 
+      } else {
+        const errorData = await response.json();
+        setError("Failed to report item: " + errorData.error);
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      setError("Server error. Ensure your Node.js backend is running.");
+    }
   };
 
   return (
@@ -172,7 +156,7 @@ const handleImageChange = async (e) => {
           <label>📦 Item title</label>
           <div className="input-group">
             <FaBoxOpen className="icon" />
-            <input type="text" name="title" placeholder="Item Title" value={item.title} onChange={handleChange} />
+            <input type="text" name="title" placeholder="Item Title" value={item.title} onChange={handleChange} required />
           </div>
 
           <label>📝 Description</label>
@@ -182,7 +166,7 @@ const handleImageChange = async (e) => {
           </div>
 
           <label>🏷️ Category</label>
-          <select name="category" value={item.category} onChange={handleChange}>
+          <select name="category" value={item.category} onChange={handleChange} required>
             <option value="">Select Category</option>
             <option value="Electronics">Electronics</option>
             <option value="Documents">Documents</option>
@@ -195,19 +179,19 @@ const handleImageChange = async (e) => {
           <label>📧 Your email (for match notifications)</label>
           <div className="input-group">
             <FaEnvelope className="icon" />
-            <input type="email" name="reporterEmail" placeholder="you@example.com" value={item.reporterEmail} onChange={handleChange} />
+            <input type="email" name="reporterEmail" placeholder="you@example.com" value={item.reporterEmail} onChange={handleChange} required />
           </div>
 
           <label>📍 Location lost</label>
           <div className="input-group">
             <FaMapMarkerAlt className="icon" />
-            <input type="text" name="location" placeholder="Location Lost" value={item.location} onChange={handleChange} />
+            <input type="text" name="location" placeholder="Location Lost" value={item.location} onChange={handleChange} required />
           </div>
 
           <label>📅 Date lost</label>
           <div className="input-group">
             <FaCalendarAlt className="icon" />
-            <input type="date" name="dateLost" value={item.dateLost} onChange={handleChange} max={new Date().toISOString().split("T")[0]} />
+            <input type="date" name="dateLost" value={item.dateLost} onChange={handleChange} max={new Date().toISOString().split("T")[0]} required />
           </div>
 
           <label>📷 Upload item photo</label>

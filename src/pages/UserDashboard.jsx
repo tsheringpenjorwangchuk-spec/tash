@@ -1,19 +1,29 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBoxOpen, FaClipboardList, FaFileAlt, FaProjectDiagram, FaRobot,
   FaSearch, FaShieldAlt, FaSignOutAlt, FaMagic
 } from "react-icons/fa";
-import { readList } from "../services/store";
 import "./UserDashboard.css";
 
 function UserDashboard() {
   const navigate = useNavigate();
-  const stats = useMemo(() => ({
-    lost: readList("lostItems").filter((x) => x.status !== "Resolved").length,
-    found: readList("foundItems").filter((x) => x.status !== "Collected").length,
-    claims: readList("claims").filter((x) => x.status !== "Collected" && x.status !== "Rejected").length,
-  }), []);
+  const [stats, setStats] = useState({ lost: 0, found: 0, claims: 0 });
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch("http://localhost:3001/api/stats");
+        if (res.ok) {
+          const data = await res.json();
+          setStats({ lost: data.lost, found: data.found, claims: data.claims });
+        }
+      } catch (e) {
+        console.warn("Could not fetch database stats, defaulting to 0.");
+      }
+    }
+    fetchStats();
+  }, []);
 
   const cards = [
     [FaClipboardList, "🔴 Report Lost Item", "Upload a photo and let AI identify useful item details.", "/report-lost-item", "AI analysis"],
@@ -27,34 +37,32 @@ function UserDashboard() {
 
   return (
     <main className="dashboard-container">
-        <section className="dashboard-hero">
-          <div>
-            <p className="dashboard-eyebrow"><FaMagic /> SMART LOST & FOUND</p>
-            <h1>👋 Welcome to Smart Lost & Found</h1>
-            <p>Report items, use AI matching, verify ownership securely and collect approved items with a unique code.</p>
-          </div>
-          <div className="dashboard-stats">
-            <div><strong>{stats.lost}</strong><span>Active lost</span></div>
-            <div><strong>{stats.found}</strong><span>Found items</span></div>
-            <div><strong>{stats.claims}</strong><span>Open claims</span></div>
-          </div>
-        </section>
-
-        <section className="workflow-strip">
-          {["Report", "Drop-off", "AI match", "Verify", "Admin review", "Collect"].map((step, i) => <div key={step}><span>{i + 1}</span><strong>{step}</strong></div>)}
-        </section>
-
-        <div className="dashboard-grid">
-          {cards.map(([Icon, title, text, path, badge]) => (
-            <button className="dashboard-card" onClick={() => navigate(path)} key={title}>
-              <div className="dashboard-card-top"><Icon /><span>{badge}</span></div>
-              <h3>{title}</h3><p>{text}</p><small>Open feature →</small>
-            </button>
-          ))}
+      <section className="dashboard-hero">
+        <div>
+          <p className="dashboard-eyebrow"><FaMagic /> SMART LOST & FOUND</p>
+          <h1>👋 Welcome to Smart Lost & Found</h1>
+          <p>Report items, use AI matching, verify ownership securely and collect approved items with a unique code.</p>
         </div>
+        <div className="dashboard-stats">
+          <div><strong>{stats.lost}</strong><span>Active lost</span></div>
+          <div><strong>{stats.found}</strong><span>Found items</span></div>
+          <div><strong>{stats.claims}</strong><span>Open claims</span></div>
+        </div>
+      </section>
 
-        <button className="logout-btn" onClick={() => navigate("/login")}><FaSignOutAlt /> Logout</button>
-      </main>
+      <div className="dashboard-grid">
+        {cards.map(([Icon, title, text, path, badge]) => (
+          <button className="dashboard-card" onClick={() => navigate(path)} key={title}>
+            <div className="dashboard-card-top"><Icon /><span>{badge}</span></div>
+            <h3>{title}</h3><p>{text}</p><small>Open feature →</small>
+          </button>
+        ))}
+      </div>
+
+      <button className="logout-btn" onClick={() => navigate("/login")}>
+        <FaSignOutAlt /> Logout
+      </button>
+    </main>
   );
 }
 export default UserDashboard;

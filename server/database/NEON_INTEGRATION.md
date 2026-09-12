@@ -1,6 +1,6 @@
-# MongoDB integration handoff
+# Neon PostgreSQL integration handoff
 
-The application is intentionally complete without a database for the classroom demo. Browser `localStorage` is the temporary persistence layer. The MongoDB teammate can replace persistence later without changing the user journey, AI endpoints, claim rules, or collection UI.
+The application uses Neon PostgreSQL for persistent users and lost-item reports. Browser `localStorage` remains a temporary workflow cache for the matching, found-item, and claim screens.
 
 ## Current complete workflow
 
@@ -30,10 +30,10 @@ The application is intentionally complete without a database for the classroom d
 
 The temporary adapter lives at `src/services/demoStore.js`.
 
-## Suggested MongoDB collections
+## Neon PostgreSQL tables
 
 ### users
-```js
+```sql
 {
   _id,
   name,
@@ -46,7 +46,7 @@ The temporary adapter lives at `src/services/demoStore.js`.
 ```
 
 ### lostItems
-```js
+```sql
 {
   _id,
   userId,
@@ -65,7 +65,7 @@ The temporary adapter lives at `src/services/demoStore.js`.
 ```
 
 ### foundItems
-```js
+```sql
 {
   _id,
   reporterId,
@@ -83,7 +83,7 @@ The temporary adapter lives at `src/services/demoStore.js`.
 ```
 
 ### claims
-```js
+```sql
 {
   _id,
   claimantId,
@@ -128,14 +128,14 @@ Keep the existing AI endpoints unchanged:
 - `POST /api/ai/analyse-item`
 - `POST /api/ai/match-items`
 
-## Security changes required when MongoDB is connected
+## Security requirements for Neon
 
 - Never store plaintext passwords.
 - Never send stored private verification answers back to the browser. Store hashes or validate answers server-side.
 - Store collection codes hashed and validate them server-side.
 - Add authentication and role-based authorization so only admins can approve/reject/collect.
 - Associate reports and claims with the authenticated user instead of trusting browser values.
-- Move image storage to a proper object store or cloud image service and save URLs in MongoDB.
+- Move image storage to a proper object store or cloud image service and save URLs in Neon.
 - Validate all request bodies on the backend.
 
 ## Integration strategy

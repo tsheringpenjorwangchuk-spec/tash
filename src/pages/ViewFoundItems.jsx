@@ -15,12 +15,19 @@ function ViewFoundItems() {
 
   const [foundItems, setFoundItems] = useState([]);
 
-  useEffect(() => {
-    const storedItems = JSON.parse(
-      localStorage.getItem("foundItems") || "[]"
-    );
-
-    setFoundItems(storedItems);
+ useEffect(() => {
+    async function fetchFoundItems() {
+      try {
+        const response = await fetch("http://localhost:3001/api/found-items");
+        if (response.ok) {
+          const items = await response.json();
+          setFoundItems(items);
+        }
+      } catch (err) {
+        console.error("Failed to load found items from database:", err);
+      }
+    }
+    fetchFoundItems();
   }, []);
 
   const handleDelete = (id) => {

@@ -30,32 +30,59 @@ function EditFoundItem() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+// Fetch existing item from Database
   useEffect(() => {
-    const foundItems = JSON.parse(
-      localStorage.getItem("foundItems") || "[]"
-    );
+    async function loadItem() {
+      try {
+        const res = await fetch(`http://localhost:3001/api/found-items/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setItem({
+            title: data.title || "",
+            description: data.description || "",
+            category: data.category || "",
+            location: data.location || "",
+            dateFound: data.dateFound ? data.dateFound.split("T")[0] : "",
+            imageDataUrl: data.imageDataUrl || "",
+          });
+        } else {
+          setError("Found item could not be found.");
+        }
+      } catch (err) {
+        setError("Error connecting to database.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadItem();
+  }, [id]);
 
-    const existingItem = foundItems.find(
-      (foundItem) => String(foundItem.id) === String(id)
-    );
-
-    if (!existingItem) {
-      setError("Found item could not be found.");
-      setLoading(false);
+  // Submit updates to Database
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!item.title.trim() || !item.category || !item.location.trim() || !item.dateFound) {
+      setError("Please complete all required fields.");
       return;
     }
 
-    setItem({
-      title: existingItem.title || "",
-      description: existingItem.description || "",
-      category: existingItem.category || "",
-      location: existingItem.location || "",
-      dateFound: existingItem.dateFound || "",
-      imageDataUrl: existingItem.imageDataUrl || "",
-    });
+    try {
+      const response = await fetch(`http://localhost:3001/api/found-items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
 
-    setLoading(false);
-  }, [id]);
+      if (response.ok) {
+        alert("Found item updated successfully in the database!");
+        navigate("/view-found-items");
+      } else {
+        const err = await response.json();
+        setError(err.error || "Failed to update item.");
+      }
+    } catch (err) {
+      setError("Network error when updating database.");
+    }
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -104,60 +131,6 @@ function EditFoundItem() {
       ...previous,
       imageDataUrl: "",
     }));
-  };
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-
-    if (
-      !item.title.trim() ||
-      !item.description.trim() ||
-      !item.category ||
-      !item.location.trim() ||
-      !item.dateFound
-    ) {
-      setError("Please complete all required fields.");
-      return;
-    }
-
-    const foundItems = JSON.parse(
-      localStorage.getItem("foundItems") || "[]"
-    );
-
-    const itemExists = foundItems.some(
-      (foundItem) => String(foundItem.id) === String(id)
-    );
-
-    if (!itemExists) {
-      setError("This found item no longer exists.");
-      return;
-    }
-
-    const updatedItems = foundItems.map((foundItem) => {
-      if (String(foundItem.id) !== String(id)) {
-        return foundItem;
-      }
-
-      return {
-        ...foundItem,
-        title: item.title.trim(),
-        description: item.description.trim(),
-        category: item.category,
-        location: item.location.trim(),
-        dateFound: item.dateFound,
-        imageDataUrl: item.imageDataUrl,
-        updatedAt: new Date().toISOString(),
-      };
-    });
-
-    localStorage.setItem(
-      "foundItems",
-      JSON.stringify(updatedItems)
-    );
-
-    alert("Found item updated successfully!");
-
-    navigate("/view-found-items");
   };
 
   if (loading) {

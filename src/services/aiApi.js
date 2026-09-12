@@ -17,6 +17,8 @@ export const aiApi = {
     post("/api/ai/analyse-item", { imageDataUrl, item, reportType }),
   matchItems: (lostItem, foundItems) =>
     post("/api/ai/match-items", { lostItem, foundItems }),
+  registerUser: (user) => post("/api/auth/register", user),
+  createLostItem: (item) => post("/api/lost-items", item),
 };
 
 export function fileToDataUrl(file) {

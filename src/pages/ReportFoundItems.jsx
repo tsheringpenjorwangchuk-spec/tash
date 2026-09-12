@@ -82,7 +82,7 @@ function ReportFoundItems() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!item.title.trim() || !item.description.trim() || !item.category || !item.location.trim() || !item.dateFound) {
@@ -103,24 +103,38 @@ function ReportFoundItems() {
       return;
     }
 
-    const existingItems = JSON.parse(localStorage.getItem("foundItems") || "[]");
-    const newItem = {
-      id: Date.now().toString(),
+    const payload = {
       title: item.title.trim(),
       description: item.description.trim(),
       category: item.category,
       location: item.location.trim(),
       dateFound: item.dateFound,
       imageDataUrl: item.imageDataUrl,
-      aiAnalysis: analysis,
       status: "Awaiting Drop-off",
       dropoffReference: `FND-${Date.now().toString().slice(-8)}`,
-      createdAt: new Date().toISOString(),
     };
 
-    localStorage.setItem("foundItems", JSON.stringify([...existingItems, newItem]));
-    alert("Found item reported successfully. Please hand the physical item to the Lost & Found Office.");
-    navigate(`/found-dropoff/${newItem.id}`);
+    try {
+      const response = await fetch("http://localhost:3001/api/found-items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const savedItem = await response.json();
+        alert("Found item reported successfully. Please hand the physical item to the Lost & Found Office.");
+        navigate(`/found-dropoff/${savedItem.id}`);
+      } else {
+        const errorData = await response.json();
+        setError("Failed to report found item: " + errorData.error);
+      }
+    } catch (err) {
+      console.error("Submit error:", err);
+      setError("Server error. Ensure your backend server is running.");
+    }
   };
 
   return (
