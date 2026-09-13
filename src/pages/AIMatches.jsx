@@ -47,7 +47,7 @@ function AIMatches() {
 
         const [lostResponse, foundResponse] = await Promise.all([
           fetchWithTimeout("http://localhost:3001/api/lost-items?summary=true"),
-          fetchWithTimeout("http://localhost:3001/api/found-items"),
+          fetchWithTimeout("http://localhost:3001/api/found-items?summary=true"),
         ]);
 
         if (!lostResponse.ok || !foundResponse.ok) {
@@ -120,6 +120,9 @@ function AIMatches() {
         selectedLost,
         foundItems
       );
+      if (result.fallback) {
+        setError(result.message);
+      }
 
       const enriched = (result.matches || []).map((match) => ({
         ...match,
@@ -453,13 +456,14 @@ function AIMatches() {
                     {/* IMAGE */}
                     <div className="match-image-wrapper">
 
-                      {match.candidate?.imageDataUrl ? (
+                      {match.candidate?.hasImage ? (
                         <img
-                          src={match.candidate.imageDataUrl}
+                          src={`http://localhost:3001/api/found-items/${match.candidate.id}/image`}
                           alt={
                             match.candidate.title ||
                             "Found item"
                           }
+                          loading="lazy"
                         />
                       ) : (
                         <div className="image-placeholder">

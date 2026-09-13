@@ -4,22 +4,30 @@ import {
   FaBoxOpen, FaClipboardList, FaFileAlt, FaProjectDiagram, FaRobot,
   FaSearch, FaShieldAlt, FaSignOutAlt, FaMagic
 } from "react-icons/fa";
+import { readValue, writeValue } from "../services/store";
 import "./UserDashboard.css";
 
 function UserDashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ lost: 0, found: 0, claims: 0 });
+  const [stats, setStats] = useState(() => readValue("dashboardStats", null));
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch("http://localhost:3001/api/stats");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch("http://localhost:3001/api/stats", {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
         if (res.ok) {
           const data = await res.json();
-          setStats({ lost: data.lost, found: data.found, claims: data.claims });
+          const nextStats = { lost: data.lost, found: data.found, claims: data.claims };
+          setStats(nextStats);
+          writeValue("dashboardStats", nextStats);
         }
       } catch (e) {
-        console.warn("Could not fetch database stats, defaulting to 0.");
+        console.warn("Could not fetch database stats.", e);
       }
     }
     fetchStats();
@@ -44,9 +52,9 @@ function UserDashboard() {
           <p>Report items, use AI matching, verify ownership securely and collect approved items with a unique code.</p>
         </div>
         <div className="dashboard-stats">
-          <div><strong>{stats.lost}</strong><span>Active lost</span></div>
-          <div><strong>{stats.found}</strong><span>Found items</span></div>
-          <div><strong>{stats.claims}</strong><span>Open claims</span></div>
+          <div><strong>{stats?.lost ?? "…"}</strong><span>Active lost</span></div>
+          <div><strong>{stats?.found ?? "…"}</strong><span>Found items</span></div>
+          <div><strong>{stats?.claims ?? "…"}</strong><span>Open claims</span></div>
         </div>
       </section>
 

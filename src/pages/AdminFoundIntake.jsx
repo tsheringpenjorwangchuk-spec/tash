@@ -16,7 +16,7 @@ export default function AdminFoundIntake() {
   useEffect(() => {
     async function loadItems() {
       try {
-        const response = await fetch("http://localhost:3001/api/found-items");
+        const response = await fetch("http://localhost:3001/api/found-items?summary=true");
         if (!response.ok) throw new Error("Could not load found reports.");
         setItems((await response.json()).slice().reverse());
       } catch (error) {

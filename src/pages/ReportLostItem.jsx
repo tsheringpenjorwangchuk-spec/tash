@@ -25,6 +25,7 @@ function ReportLostItem() {
   });
   
   const [analysis, setAnalysis] = useState(null);
+  const [analysisNotice, setAnalysisNotice] = useState("");
   const [verificationAnswers, setVerificationAnswers] = useState({});
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState("");
@@ -38,12 +39,14 @@ function ReportLostItem() {
     if (!dataUrl) return;
     setAnalysing(true);
     setAnalysis(null);
+    setAnalysisNotice("");
     setVerificationAnswers({});
     setError("");
     try {
       const result = await aiApi.analyseItem(dataUrl, item, "lost");
       const nextAnalysis = result.analysis;
       setAnalysis(nextAnalysis);
+      setAnalysisNotice(result.fallback ? result.message : "");
       setItem((current) => ({
         ...current,
         title: current.title || nextAnalysis?.suggestedTitle || "",
@@ -61,6 +64,7 @@ function ReportLostItem() {
     const file = e.target.files?.[0];
 
     setAnalysis(null);
+    setAnalysisNotice("");
     setVerificationAnswers({});
     setError("");
 
@@ -205,6 +209,7 @@ function ReportLostItem() {
           )}
 
           {analysing && <p style={{ marginTop: 12 }}>OpenAI is automatically analysing the uploaded photo…</p>}
+          {analysisNotice && <p style={{ marginTop: 12, color: "#8a6d1d" }}>{analysisNotice}</p>}
 
           {analysis && (
             <section style={{ marginTop: 16, padding: 16, border: "1px solid #ddd", borderRadius: 12 }}>
