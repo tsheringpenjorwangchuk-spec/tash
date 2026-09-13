@@ -58,7 +58,7 @@ function MyClaims() {
                   <div className="claim-card-top">
                     <div>
                       <span className="claim-ref">{claim.id}</span>
-                      <h2>{lost?.title || "Lost item"}</h2>
+                      <h2>{lost?.title || claim.searchItem?.title || "Lost item"}</h2>
                       <p>Potential match: <strong>{found?.title || "Found item"}</strong></p>
                     </div>
                     <span className={`claim-status ${claim.status.toLowerCase().replace(/\s+/g, "-")}`}>

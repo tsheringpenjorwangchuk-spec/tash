@@ -1,35 +1,75 @@
 /* =========================================================
-   HARD CLEAR UI OVERRIDE
-   Imported LAST from main.jsx so legacy dark/glass styles
-   cannot reduce contrast. Solid surfaces, strong navigation,
-   readable labels and controls across every page.
+   HARD CLEAR UI OVERRIDE — BLUE + TEAL + WHITE
+   Imported LAST from main.jsx.
+   High-contrast presentation layer that overrides legacy
+   styles while keeping the existing layout and functionality.
    ========================================================= */
+
 :root {
-  --hc-navy: #10233f;
-  --hc-navy-2: #17365f;
+  /* Core palette */
+  --hc-navy: #07111f;
+  --hc-navy-2: #0b1728;
+  --hc-navy-3: #102238;
+
   --hc-blue: #2563eb;
   --hc-blue-dark: #1d4ed8;
-  --hc-purple: #6d4aff;
-  --hc-text: #17263d;
-  --hc-muted: #5d6f87;
-  --hc-border: #cbd8e8;
-  --hc-soft: #f3f7fc;
-  --hc-soft-blue: #eaf2ff;
-  --hc-card: #ffffff;
-  --hc-green: #15803d;
-  --hc-red: #c62828;
-  --hc-amber: #9a6500;
+  --hc-blue-light: #60a5fa;
+
+  --hc-teal: #14b8a6;
+  --hc-teal-light: #2dd4bf;
+
+  --hc-text: #f8fafc;
+  --hc-muted: #94a3b8;
+
+  --hc-border: rgba(148, 163, 184, 0.18);
+  --hc-border-blue: rgba(96, 165, 250, 0.24);
+  --hc-border-teal: rgba(45, 212, 191, 0.22);
+
+  --hc-soft: #0b1728;
+  --hc-soft-blue: rgba(37, 99, 235, 0.10);
+  --hc-soft-teal: rgba(20, 184, 166, 0.10);
+
+  --hc-card: #102238;
+
+  /* Status colours remain semantic */
+  --hc-green: #22c55e;
+  --hc-red: #ef4444;
+  --hc-amber: #f59e0b;
 }
 
-html, body, #root {
+
+/* =========================================================
+   GLOBAL FOUNDATION
+   ========================================================= */
+
+html,
+body,
+#root {
   min-height: 100%;
   color: var(--hc-text) !important;
-  background: #f3f7fc !important;
+  background:
+    radial-gradient(
+      circle at 15% 10%,
+      rgba(37, 99, 235, 0.10),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(20, 184, 166, 0.08),
+      transparent 30%
+    ),
+    var(--hc-navy) !important;
 }
 
-body::before { display: none !important; }
+body::before {
+  display: none !important;
+}
 
-/* ---------- Page foundations ---------- */
+
+/* =========================================================
+   PAGE FOUNDATIONS
+   ========================================================= */
+
 .home-container,
 .login-container,
 .register-container,
@@ -49,53 +89,114 @@ body::before { display: none !important; }
 .finder-dropoff-page,
 .admin-intake-page,
 [class*="page"] {
-  background: #f3f7fc !important;
+  background:
+    radial-gradient(
+      circle at 15% 10%,
+      rgba(37, 99, 235, 0.07),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 85% 20%,
+      rgba(20, 184, 166, 0.06),
+      transparent 28%
+    ),
+    var(--hc-navy) !important;
+
   color: var(--hc-text) !important;
 }
 
-/* ---------- Navigation: intentionally dark and high contrast ---------- */
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
 .navbar {
   width: min(1180px, calc(100% - 32px)) !important;
   margin: 18px auto 24px !important;
   padding: 13px 16px !important;
-  background: var(--hc-navy) !important;
-  border: 1px solid #203d63 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 8px 24px rgba(16,35,63,.18) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(16, 34, 56, 0.98),
+      rgba(7, 17, 31, 0.98)
+    ) !important;
+
+  border: 1px solid rgba(96, 165, 250, 0.20) !important;
+  border-radius: 16px !important;
+
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.34),
+    0 0 35px rgba(37, 99, 235, 0.05) !important;
+
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
 }
+
 .navbar-logo,
 .navbar-logo span,
 .navbar-logo svg {
   color: #ffffff !important;
   opacity: 1 !important;
 }
-.navbar-logo svg { color: #77a9ff !important; }
-.navbar-links { gap: 8px !important; }
+
+.navbar-logo svg {
+  color: var(--hc-teal-light) !important;
+}
+
+.navbar-links {
+  gap: 8px !important;
+}
+
 .navbar-links button {
-  color: #ffffff !important;
-  background: #17365f !important;
-  border: 1px solid #315279 !important;
+  color: #e2e8f0 !important;
+
+  background:
+    rgba(16, 34, 56, 0.90) !important;
+
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+
   border-radius: 10px !important;
+
   font-weight: 700 !important;
   opacity: 1 !important;
   box-shadow: none !important;
 }
-.navbar-links button svg { color: #d9e7ff !important; }
-.navbar-links button:hover {
-  background: #244b7a !important;
-  border-color: #5f86b5 !important;
-  color: #ffffff !important;
+
+.navbar-links button svg {
+  color: var(--hc-blue-light) !important;
 }
-.navbar-links .logout-nav,
-.logout-nav {
-  background: #d84343 !important;
-  border-color: #d84343 !important;
+
+.navbar-links button:hover {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.18),
+      rgba(20, 184, 166, 0.10)
+    ) !important;
+
+  border-color: rgba(96, 165, 250, 0.35) !important;
   color: #ffffff !important;
 }
 
-/* ---------- Solid card surfaces ---------- */
+.navbar-links .logout-nav,
+.logout-nav {
+  background: #991b1b !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+.navbar-links .logout-nav:hover,
+.logout-nav:hover {
+  background: #dc2626 !important;
+  border-color: #ef4444 !important;
+}
+
+
+/* =========================================================
+   SOLID / GLASS CARD SURFACES
+   ========================================================= */
+
 .home-card,
 .login-card,
 .register-card,
@@ -126,17 +227,38 @@ body::before { display: none !important; }
 .view-container .lost-item-card,
 .view-container .found-item-card,
 .collection-detail-grid > div {
-  background: #ffffff !important;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(16, 34, 56, 0.96),
+      rgba(7, 17, 31, 0.96)
+    ) !important;
+
   color: var(--hc-text) !important;
-  border: 1px solid var(--hc-border) !important;
-  box-shadow: 0 8px 22px rgba(35,65,105,.10) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(37, 99, 235, 0.025) !important;
+
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+
   opacity: 1 !important;
 }
 
-/* ---------- Typography ---------- */
-h1, h2, h3, h4, h5, h6,
+
+/* =========================================================
+   TYPOGRAPHY
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
 .dashboard-hero h1,
 .dashboard-card h3,
 .admin-hero h1,
@@ -151,7 +273,7 @@ h1, h2, h3, h4, h5, h6,
 .collection-success-row h2,
 .verify-card h1,
 .verify-card h2 {
-  color: var(--hc-navy) !important;
+  color: #f8fafc !important;
   opacity: 1 !important;
   text-shadow: none !important;
 }
@@ -183,49 +305,98 @@ small,
 .edit-found-eyebrow,
 .edit-lost-eyebrow,
 .verify-eyebrow {
-  color: var(--hc-blue) !important;
+  color: var(--hc-teal-light) !important;
   opacity: 1 !important;
 }
 
-/* ---------- Dashboard readability ---------- */
+
+/* =========================================================
+   DASHBOARD READABILITY
+   ========================================================= */
+
 .dashboard-hero,
 .admin-hero {
-  background: #ffffff !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(16, 34, 56, 0.98),
+      rgba(7, 17, 31, 0.98)
+    ) !important;
+
   border-left: 5px solid var(--hc-blue) !important;
 }
+
 .dashboard-stats > div,
 .admin-stats > div,
 .workflow-strip > div {
-  background: #eaf2ff !important;
-  border: 1px solid #c6d9f5 !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.12),
+      rgba(20, 184, 166, 0.07)
+    ) !important;
+
+  border: 1px solid rgba(96, 165, 250, 0.18) !important;
+
   color: var(--hc-text) !important;
   opacity: 1 !important;
 }
+
 .dashboard-stats strong,
-.admin-stats strong { color: var(--hc-blue-dark) !important; }
-.dashboard-stats span,
-.admin-stats span,
-.workflow-strip > div { color: #405a79 !important; }
-.workflow-strip span {
-  background: var(--hc-blue) !important;
-  color: #ffffff !important;
-}
-.dashboard-card,
-.admin-card { color: var(--hc-text) !important; }
-.dashboard-card-top span {
-  background: #eaf2ff !important;
-  color: #1d4ed8 !important;
-  border: 1px solid #bfd4f2 !important;
-}
-.dashboard-card small,
-.admin-card small { color: var(--hc-blue-dark) !important; }
-.dashboard-card:hover,
-.admin-card:hover {
-  background: #f8fbff !important;
-  border-color: #7fa9df !important;
+.admin-stats strong {
+  color: var(--hc-blue-light) !important;
 }
 
-/* ---------- Forms: visible labels + text backgrounds ---------- */
+.dashboard-stats span,
+.admin-stats span,
+.workflow-strip > div {
+  color: #94a3b8 !important;
+}
+
+.workflow-strip span {
+  background:
+    linear-gradient(
+      135deg,
+      var(--hc-blue),
+      var(--hc-teal)
+    ) !important;
+
+  color: #ffffff !important;
+}
+
+.dashboard-card,
+.admin-card {
+  color: var(--hc-text) !important;
+}
+
+.dashboard-card-top span {
+  background: rgba(37, 99, 235, 0.10) !important;
+  color: var(--hc-blue-light) !important;
+  border: 1px solid rgba(96, 165, 250, 0.18) !important;
+}
+
+.dashboard-card small,
+.admin-card small {
+  color: var(--hc-teal-light) !important;
+}
+
+.dashboard-card:hover,
+.admin-card:hover {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(16, 34, 56, 1),
+      rgba(11, 23, 40, 1)
+    ) !important;
+
+  border-color: rgba(96, 165, 250, 0.32) !important;
+}
+
+
+/* =========================================================
+   FORMS
+   ========================================================= */
+
 label,
 .input-group label,
 .edit-field label,
@@ -233,7 +404,8 @@ label,
 .admin-textarea-label,
 .admin-review-panel label {
   display: block;
-  color: #263b57 !important;
+
+  color: #dbe7f3 !important;
   font-weight: 700 !important;
   opacity: 1 !important;
 }
@@ -250,45 +422,88 @@ select,
 .handover-code-row input,
 .chat-input,
 .chat-form input {
-  background: #ffffff !important;
-  color: #17263d !important;
-  border: 1.5px solid #b9cbe0 !important;
+  background: #0b1728 !important;
+
+  color: #f8fafc !important;
+
+  border: 1.5px solid rgba(148, 163, 184, 0.24) !important;
+
   border-radius: 10px !important;
-  box-shadow: inset 0 1px 2px rgba(30,55,85,.03) !important;
+
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+
   opacity: 1 !important;
 }
+
 input::placeholder,
 textarea::placeholder {
-  color: #7b8ca2 !important;
+  color: #64748b !important;
   opacity: 1 !important;
 }
+
 input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--hc-blue) !important;
-  box-shadow: 0 0 0 3px rgba(37,99,235,.14) !important;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.18),
+    0 0 18px rgba(37, 99, 235, 0.06) !important;
+
   outline: none !important;
-  background: #ffffff !important;
+
+  background: #0b1728 !important;
 }
+
 select option {
-  background: #ffffff !important;
-  color: #17263d !important;
+  background: #0b1728 !important;
+  color: #f8fafc !important;
 }
-input[type="date"] { color-scheme: light !important; }
+
+input[type="date"] {
+  color-scheme: dark !important;
+}
+
+
+/* =========================================================
+   FILE UPLOAD
+   ========================================================= */
 
 .file-upload,
 .found-file-upload,
 .edit-file-upload,
 .edit-lost-file-upload {
-  background: #eef5ff !important;
-  color: #334e70 !important;
-  border: 1.5px dashed #7ea7dc !important;
+  background:
+    rgba(37, 99, 235, 0.07) !important;
+
+  color: #cbd5e1 !important;
+
+  border: 1.5px dashed rgba(96, 165, 250, 0.40) !important;
+
   opacity: 1 !important;
 }
-.file-upload input,
-.found-file-upload input { color: #334e70 !important; }
 
-/* ---------- Buttons ---------- */
+.file-upload:hover,
+.found-file-upload:hover,
+.edit-file-upload:hover,
+.edit-lost-file-upload:hover {
+  background:
+    rgba(20, 184, 166, 0.08) !important;
+
+  border-color: var(--hc-teal) !important;
+}
+
+.file-upload input,
+.found-file-upload input {
+  color: #cbd5e1 !important;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
 button,
 .primary-action,
 .approve-action,
@@ -297,122 +512,280 @@ button,
 button[type="submit"] {
   opacity: 1 !important;
 }
+
 .primary-action,
 .approve-action,
 .verify-submit,
 .submit-btn,
 .lost-item-card button[type="submit"],
 .found-item-card button[type="submit"] {
-  background: var(--hc-blue) !important;
+  background:
+    linear-gradient(
+      135deg,
+      var(--hc-blue),
+      var(--hc-blue-dark)
+    ) !important;
+
   color: #ffffff !important;
-  border: 1px solid var(--hc-blue) !important;
-  box-shadow: 0 5px 14px rgba(37,99,235,.18) !important;
+
+  border: 1px solid rgba(96, 165, 250, 0.20) !important;
+
+  box-shadow:
+    0 7px 20px rgba(37, 99, 235, 0.22) !important;
 }
+
 .primary-action:hover,
 .approve-action:hover,
 .verify-submit:hover,
 .submit-btn:hover,
 button[type="submit"]:hover {
-  background: var(--hc-blue-dark) !important;
+  background:
+    linear-gradient(
+      135deg,
+      var(--hc-blue-dark),
+      #1740a8
+    ) !important;
+
+  box-shadow:
+    0 9px 24px rgba(37, 99, 235, 0.30) !important;
 }
+
 .secondary-action,
 .verify-back,
 .collection-code-panel button {
-  background: #ffffff !important;
-  color: var(--hc-navy-2) !important;
-  border: 1px solid #9eb6d2 !important;
-}
-.reject-action,
-.delete-btn { background: #d84343 !important; color: #fff !important; }
+  background:
+    rgba(16, 34, 56, 0.92) !important;
 
-/* ---------- AI / matching ---------- */
+  color: #dbe7f3 !important;
+
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+}
+
+.secondary-action:hover,
+.verify-back:hover,
+.collection-code-panel button:hover {
+  background:
+    rgba(37, 99, 235, 0.12) !important;
+
+  border-color:
+    rgba(96, 165, 250, 0.34) !important;
+}
+
+.reject-action,
+.delete-btn {
+  background: #991b1b !important;
+  color: #ffffff !important;
+}
+
+.reject-action:hover,
+.delete-btn:hover {
+  background: #dc2626 !important;
+}
+
+
+/* =========================================================
+   AI / MATCHING
+   ========================================================= */
+
 .ai-match-page,
-.chat-page { background: #f3f7fc !important; }
+.chat-page {
+  background: var(--hc-navy) !important;
+}
+
 .ai-reason,
 .chat-form,
 .message-row.assistant .message,
 .assistant .message {
-  background: #eef5ff !important;
-  color: #243b59 !important;
-  border: 1px solid #cbdcf2 !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(20, 184, 166, 0.08),
+      rgba(37, 99, 235, 0.07)
+    ) !important;
+
+  color: #dbe7f3 !important;
+
+  border: 1px solid rgba(45, 212, 191, 0.16) !important;
 }
+
 .message-row.user .message,
 .user .message {
-  background: var(--hc-blue) !important;
+  background:
+    linear-gradient(
+      135deg,
+      var(--hc-blue),
+      #1d4ed8
+    ) !important;
+
   color: #ffffff !important;
 }
 
-/* ---------- Claims / verification ---------- */
-.claims-page { color: var(--hc-text) !important; }
+
+/* =========================================================
+   CLAIMS / VERIFICATION
+   ========================================================= */
+
+.claims-page {
+  color: var(--hc-text) !important;
+}
+
 .claim-meta-grid > div,
 .claim-reference > div,
 .admin-review-panel,
 .handover-panel,
 .collection-instructions {
-  background: #f7faff !important;
+  background:
+    rgba(11, 23, 40, 0.90) !important;
+
   color: var(--hc-text) !important;
-  border: 1px solid #d4e0ee !important;
+
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
 }
+
 .claim-meta-grid span,
 .claim-reference span,
-.collection-detail-grid span { color: #60718a !important; }
-.claim-ref { color: #385c86 !important; }
+.collection-detail-grid span {
+  color: #94a3b8 !important;
+}
+
+.claim-ref {
+  color: var(--hc-blue-light) !important;
+}
+
 .claims-note,
 .admin-note,
 .verification-note,
 .ai-info-banner {
-  background: #eef5ff !important;
-  color: #355579 !important;
-  border: 1px solid #cbdcf2 !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.10),
+      rgba(20, 184, 166, 0.06)
+    ) !important;
+
+  color: #cbd5e1 !important;
+
+  border: 1px solid rgba(96, 165, 250, 0.18) !important;
 }
+
+
+/* =========================================================
+   CLAIM STATUS
+   ========================================================= */
+
 .claim-status {
-  background: #fff5d9 !important;
-  color: #8b5b00 !important;
-  border: 1px solid #e8c76c !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.30) !important;
 }
+
 .claim-status.approved,
 .claim-status.ready-for-collection,
 .claim-status.collected {
-  background: #e9f8ef !important;
-  color: #146c3e !important;
-  border-color: #9bd5b6 !important;
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: #4ade80 !important;
+  border-color: rgba(34, 197, 94, 0.28) !important;
 }
+
 .claim-status.rejected {
-  background: #fff0f0 !important;
-  color: #a82b31 !important;
-  border-color: #efb7ba !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
 }
-.progress-step { color: #60718a !important; }
-.progress-step span { background: #e8eef6 !important; color: #455d7b !important; border-color: #c5d4e5 !important; }
-.progress-step.done { color: var(--hc-blue-dark) !important; }
-.progress-step.done span { background: var(--hc-blue) !important; color: #fff !important; }
+
+
+/* =========================================================
+   CLAIM PROGRESS
+   ========================================================= */
+
+.progress-step {
+  color: #64748b !important;
+}
+
+.progress-step span {
+  background: #102238 !important;
+  color: #94a3b8 !important;
+
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+.progress-step.done {
+  color: var(--hc-blue-light) !important;
+}
+
+.progress-step.done span {
+  background:
+    linear-gradient(
+      135deg,
+      var(--hc-blue),
+      var(--hc-teal)
+    ) !important;
+
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   COLLECTION CODE
+   ========================================================= */
 
 .collection-code-panel {
-  background: #eaf2ff !important;
-  border: 2px solid #8eb2e4 !important;
-}
-.collection-code-panel span { color: #385c86 !important; }
-.collection-code-panel strong,
-.issued-code,
-.handover-code-row strong { color: var(--hc-blue-dark) !important; }
-.issued-code { background: #eef5ff !important; border-color: #bfd4f2 !important; }
-.collected-banner,
-.collection-success-row {
-  background: #e9f8ef !important;
-  color: #146c3e !important;
-  border: 1px solid #9bd5b6 !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.12),
+      rgba(20, 184, 166, 0.08)
+    ) !important;
+
+  border: 2px solid rgba(96, 165, 250, 0.35) !important;
 }
 
-/* ---------- Finder drop-off / admin intake ---------- */
+.collection-code-panel span {
+  color: #94a3b8 !important;
+}
+
+.collection-code-panel strong,
+.issued-code,
+.handover-code-row strong {
+  color: var(--hc-blue-light) !important;
+}
+
+.issued-code {
+  background:
+    rgba(37, 99, 235, 0.08) !important;
+
+  border-color:
+    rgba(96, 165, 250, 0.22) !important;
+}
+
+.collected-banner,
+.collection-success-row {
+  background:
+    rgba(34, 197, 94, 0.10) !important;
+
+  color: #4ade80 !important;
+
+  border: 1px solid rgba(34, 197, 94, 0.25) !important;
+}
+
+
+/* =========================================================
+   FINDER DROP-OFF / ADMIN INTAKE
+   ========================================================= */
+
 .dropoff-reference,
 .dropoff-code,
 .intake-reference,
 .reference-box,
 [class*="reference"] {
-  color: var(--hc-blue-dark) !important;
+  color: var(--hc-blue-light) !important;
 }
 
-/* ---------- Prevent washed-out legacy opacity ---------- */
+
+/* =========================================================
+   PREVENT WASHED-OUT LEGACY EFFECTS
+   ========================================================= */
+
 .dashboard-container *,
 .admin-container *,
 .lost-item-container *,
@@ -424,11 +797,52 @@ button[type="submit"]:hover {
   text-shadow: none !important;
 }
 
-/* ---------- Mobile navigation ---------- */
+
+/* =========================================================
+   MOBILE NAVIGATION
+   ========================================================= */
+
 @media (max-width: 760px) {
-  .navbar { align-items: stretch !important; }
-  .navbar-links { width: 100% !important; display: grid !important; grid-template-columns: 1fr 1fr !important; }
-  .navbar-links button { justify-content: center !important; }
-  .dashboard-stats, .admin-stats { min-width: 0 !important; width: 100% !important; }
-  .workflow-strip { grid-template-columns: repeat(2,1fr) !important; }
+  .navbar {
+    align-items: stretch !important;
+  }
+
+  .navbar-links {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .navbar-links button {
+    justify-content: center !important;
+  }
+
+  .dashboard-stats,
+  .admin-stats {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .workflow-strip {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY / INTERACTION
+   ========================================================= */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--hc-teal-light) !important;
+  outline-offset: 2px !important;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.35);
+  color: #ffffff;
 }

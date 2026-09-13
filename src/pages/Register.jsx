@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -5,7 +6,12 @@ import {
   FaEnvelope,
   FaLock,
   FaUserPlus,
+  FaShieldAlt,
+  FaArrowLeft,
+  FaCheckCircle,
+  FaRobot,
 } from "react-icons/fa";
+
 import "./Register.css";
 
 function Register() {
@@ -17,132 +23,267 @@ function Register() {
     password: "",
   });
 
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-
   const handleChange = (e) => {
     setUser({
       ...user,
       [e.target.name]: e.target.value,
     });
-    setErrorMessage("");
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setErrorMessage("");
 
-    if (!user.name.trim() || !user.email.trim() || !user.password) {
-      alert("Please fill in all fields.");
+    if (!user.name || !user.email || !user.password) {
+      alert("Please fill in all fields");
       return;
     }
 
     if (user.password.length < 6) {
-      alert("Password must be at least 6 characters.");
+      alert("Password must be at least 6 characters");
       return;
     }
 
-    setLoading(true);
+    const users = JSON.parse(
+      localStorage.getItem("users") || "[]"
+    );
 
-    try {
-      // Send directly to the Neon backend — ZERO local storage used
-      const response = await fetch("http://localhost:3001/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: user.name.trim(),
-          email: user.email.trim().toLowerCase(),
-          password: user.password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(data.error || "Registration failed.");
-        alert(data.error || "Registration failed.");
-        return;
-      }
-
-      alert("Registration Successful! User record created directly in Neon database.");
-      navigate("/login");
-    } catch (error) {
-      console.error("Registration error:", error);
-      setErrorMessage("Could not connect to backend server. Make sure node server/server.mjs is running.");
-      alert("Could not connect to backend server. Make sure node server/server.mjs is running.");
-    } finally {
-      setLoading(false);
+    if (
+      users.some(
+        (existing) =>
+          existing.email.toLowerCase() ===
+          user.email.trim().toLowerCase()
+      )
+    ) {
+      alert("An account with this email already exists.");
+      return;
     }
+
+    const savedUser = {
+      id: `USR-${Date.now()}`,
+      name: user.name.trim(),
+      email: user.email.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(
+      "users",
+      JSON.stringify([...users, savedUser])
+    );
+
+    alert("Registration Successful!");
+
+    navigate("/login");
   };
 
   return (
-    <div className="register-container">
-      <div className="register-card">
-        <h1>Create Account</h1>
-        <p>Join the Lost & Found community</p>
+    <main className="register-page">
+      <div className="register-background-grid" />
 
-        {errorMessage && (
-          <div style={{ color: "#ef4444", marginBottom: 16, fontSize: "14px", fontWeight: 600 }}>
-            {errorMessage}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <FaUser className="icon" />
-            <input
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              value={user.name}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <div className="input-group">
-            <FaEnvelope className="icon" />
-            <input
-              type="email"
-              name="email"
-              placeholder="Email Address"
-              value={user.email}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <div className="input-group">
-            <FaLock className="icon" />
-            <input
-              type="password"
-              name="password"
-              placeholder="Password (min 6 characters)"
-              value={user.password}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <button type="submit" disabled={loading}>
-            <FaUserPlus />
-            {loading ? "Creating Account in Neon…" : "Register"}
+      <div className="register-layout">
+        {/* LEFT SIDE */}
+        <section className="register-intro">
+          <button
+            className="register-back-link"
+            onClick={() => navigate("/")}
+          >
+            <FaArrowLeft />
+            <span>Back to home</span>
           </button>
-        </form>
 
-        <div className="login-link">
-          <p>Already have an account?</p>
-          <button type="button" onClick={() => navigate("/login")}>
-            Login
-          </button>
-        </div>
+          <div className="register-brand">
+            <div className="register-brand-mark">
+              <FaShieldAlt />
+            </div>
+
+            <div>
+              <strong>Lost & Found</strong>
+              <span>Management System</span>
+            </div>
+          </div>
+
+          <div className="register-intro-content">
+            <span className="register-eyebrow">
+              <span className="register-eyebrow-dot" />
+              JOIN THE PLATFORM
+            </span>
+
+            <h1>
+              Find it.
+              <br />
+              <span>Recover it.</span>
+            </h1>
+
+            <p>
+              Create your account and get access to a smarter
+              way of reporting, matching and recovering lost
+              belongings.
+            </p>
+          </div>
+
+          <div className="register-feature-list">
+            <div className="register-feature">
+              <div className="register-feature-icon">
+                <FaCheckCircle />
+              </div>
+
+              <div>
+                <strong>Report with ease</strong>
+                <span>
+                  Keep your lost and found reports organised.
+                </span>
+              </div>
+            </div>
+
+            <div className="register-feature">
+              <div className="register-feature-icon">
+                <FaRobot />
+              </div>
+
+              <div>
+                <strong>Smart AI matching</strong>
+                <span>
+                  Let AI help identify potential item matches.
+                </span>
+              </div>
+            </div>
+
+            <div className="register-feature">
+              <div className="register-feature-icon">
+                <FaShieldAlt />
+              </div>
+
+              <div>
+                <strong>Secure recovery</strong>
+                <span>
+                  Ownership verification supports safer claims.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="register-intro-footer">
+            <span className="register-footer-line" />
+            <span>Smart recovery. Better outcomes.</span>
+          </div>
+        </section>
+
+        {/* RIGHT SIDE */}
+        <section className="register-form-area">
+          <div className="register-card">
+            <div className="register-card-top">
+              <div className="register-role-icon">
+                <FaUserPlus />
+              </div>
+
+              <span className="register-form-label">
+                NEW USER
+              </span>
+
+              <h2>Create your account</h2>
+
+              <p>
+                Set up your account to start using the system.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              {/* NAME */}
+              <div className="register-field">
+                <label className="register-label">
+                  Full name
+                </label>
+
+                <div className="register-input-group">
+                  <FaUser className="register-input-icon" />
+
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Your full name"
+                    value={user.name}
+                    onChange={handleChange}
+                    autoComplete="name"
+                  />
+                </div>
+              </div>
+
+              {/* EMAIL */}
+              <div className="register-field">
+                <label className="register-label">
+                  Email address
+                </label>
+
+                <div className="register-input-group">
+                  <FaEnvelope className="register-input-icon" />
+
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    value={user.email}
+                    onChange={handleChange}
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+
+              {/* PASSWORD */}
+              <div className="register-field">
+                <label className="register-label">
+                  Password
+                </label>
+
+                <div className="register-input-group">
+                  <FaLock className="register-input-icon" />
+
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="At least 6 characters"
+                    value={user.password}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <div className="register-password-note">
+                <FaShieldAlt />
+                <span>
+                  Use at least 6 characters for your password.
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                className="register-submit-btn"
+              >
+                <span>Create account</span>
+                <FaUserPlus />
+              </button>
+            </form>
+
+            <div className="register-login-link">
+              <p>Already have an account?</p>
+
+              <button
+                onClick={() => navigate("/login")}
+              >
+                Sign in to your account
+                <span>→</span>
+              </button>
+            </div>
+
+            <div className="register-security-note">
+              <FaShieldAlt />
+              <span>
+                Your account details are stored locally by the application.
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
