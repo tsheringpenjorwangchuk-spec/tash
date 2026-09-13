@@ -911,7 +911,73 @@ const server = http.createServer(
         );
 
         return sendJson(res, 200, result.rows);
+        return sendJson(res, 200, result.rows);
       }
+      // =====================================================
+      // DASHBOARD COUNTS (DATABASE)
+      // =====================================================
+
+      if (req.method === "GET" && req.url === "/api/stats") {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const result = await databasePool.query(`
+          SELECT
+            (SELECT COUNT(*) FROM lost_items WHERE status::text NOT IN ('Resolved', 'Claim Approved')) AS lost,
+            (SELECT COUNT(*) FROM found_items WHERE status::text <> 'Collected') AS found,
+            (SELECT COUNT(*) FROM claims WHERE status::text NOT IN ('Rejected', 'Collected')) AS claims
+        `);
+
+        const row = result.rows[0];
+        return sendJson(res, 200, {
+          lost: Number(row.lost),
+          found: Number(row.found),
+          claims: Number(row.claims),
+        });
+      }
+
+      // =====================================================
+      // UPDATE FOUND ITEM STATUS (DATABASE)
+      // =====================================================
+
+      if (
+        req.method === "PATCH" &&
+        req.url.startsWith("/api/found-items/")
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const id = req.url.split("/").pop();
+        const { status, receivedAt, receivedBy } = await readJson(req);
+
+        if (!id || !status?.trim()) {
+          return sendJson(res, 400, { error: "Item ID and status are required." });
+        }
+
+        const result = await databasePool.query(
+          `UPDATE found_items
+           SET status = $1
+           WHERE id = $2
+           RETURNING id, title, description, category, location,
+                     date_found AS "dateFound", status,
+                     dropoff_reference AS "dropoffReference",
+                     image_data_url AS "imageDataUrl", created_at AS "createdAt"`,
+          [status.trim(), id]
+        );
+
+        if (result.rowCount === 0) {
+          return sendJson(res, 404, { error: "Found item not found." });
+        }
+
+        return sendJson(res, 200, {
+          ...result.rows[0],
+          receivedAt: receivedAt || null,
+          receivedBy: receivedBy || null,
+        });
+      }
+
 // =====================================================
       // CLAIMS (DATABASE)
       // =====================================================
@@ -1018,7 +1084,10 @@ const server = http.createServer(
         }
 
         const result = await databasePool.query(
-          `SELECT * FROM lost_items ORDER BY created_at DESC`
+          `SELECT id, user_id, title, description, category, location,
+                  date_lost, status, image_data_url, created_at,
+                  reporter_email, ai_analysis, private_verification, resolved_at
+           FROM lost_items ORDER BY created_at DESC`
         );
         
         return sendJson(res, 200, result.rows);

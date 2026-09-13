@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
@@ -22,26 +22,79 @@ function AIMatches() {
 
   const currentUser = readValue("currentUser", null);
   const currentEmail = String(currentUser?.email || "").trim().toLowerCase();
-  const lostItems = useMemo(
-    () => JSON.parse(localStorage.getItem("lostItems") || "[]").filter((item) =>
-      (!currentEmail || String(item.reporterEmail || "").toLowerCase() === currentEmail) &&
-      !["Resolved", "Claim Approved"].includes(item.status)
-    ),
-    [currentEmail]
-  );
-
-  const foundItems = useMemo(
-    () => JSON.parse(localStorage.getItem("foundItems") || "[]").filter((item) => item.status === "Available for Matching"),
-    []
-  );
-
-  const [selectedLostId, setSelectedLostId] = useState(
-    lostItems[0]?.id || ""
-  );
-
+  const [lostItems, setLostItems] = useState([]);
+  const [foundItems, setFoundItems] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [selectedLostId, setSelectedLostId] = useState("");
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReports() {
+      try {
+        const fetchWithTimeout = async (url) => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000);
+          try {
+            return await fetch(url, { signal: controller.signal });
+          } finally {
+            clearTimeout(timeout);
+          }
+        };
+
+        const [lostResponse, foundResponse] = await Promise.all([
+          fetchWithTimeout("http://localhost:3001/api/lost-items"),
+          fetchWithTimeout("http://localhost:3001/api/found-items"),
+        ]);
+
+        if (!lostResponse.ok || !foundResponse.ok) {
+          throw new Error("Could not load reports from the database.");
+        }
+
+        const [lostData, foundData] = await Promise.all([
+          lostResponse.json(),
+          foundResponse.json(),
+        ]);
+
+        if (cancelled) return;
+
+        const availableLostItems = lostData
+          .map((item) => ({
+            ...item,
+            dateLost: item.date_lost,
+            imageDataUrl: item.image_data_url,
+            reporterEmail: item.reporter_email,
+          }))
+          .filter((item) =>
+            (!currentEmail || String(item.reporterEmail || "").toLowerCase() === currentEmail) &&
+            !["Resolved", "Claim Approved"].includes(item.status)
+          );
+        setLostItems(availableLostItems);
+        setFoundItems(foundData.filter((item) => item.status === "Available for Matching"));
+        setSelectedLostId((currentId) => currentId || availableLostItems[0]?.id || "");
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError.name === "AbortError"
+            ? "Loading reports timed out. Please check that the backend is running."
+            : loadError.message);
+        }
+      } finally {
+        if (!cancelled) setLoadingReports(false);
+      }
+    }
+
+    loadReports();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentEmail]);
+
+  if (loadingReports) {
+    return <main className="ai-match-page"><div className="ai-match-shell"><p>Loading reports…</p></div></main>;
+  }
 
   const selectedLost = lostItems.find(
     (item) => String(item.id) === String(selectedLostId)
