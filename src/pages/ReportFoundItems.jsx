@@ -98,11 +98,6 @@ function ReportFoundItems() {
       setError("Please wait for AI image analysis to finish before submitting.");
       return;
     }
-    if (item.imageDataUrl && !analysis) {
-      setError("Please complete AI image analysis before submitting this photo report.");
-      return;
-    }
-
     const payload = {
       title: item.title.trim(),
       description: item.description.trim(),

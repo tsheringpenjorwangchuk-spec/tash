@@ -1077,17 +1077,17 @@ const server = http.createServer(
 
       if (
         req.method === "GET" &&
-        req.url === "/api/lost-items"
+        (req.url === "/api/lost-items" || req.url === "/api/lost-items?summary=true")
       ) {
         if (!databasePool) {
           return sendJson(res, 503, { error: "Database not configured." });
         }
 
+        const columns = req.url === "/api/lost-items?summary=true"
+          ? "id, user_id, title, description, category, location, date_lost, status, created_at, reporter_email"
+          : "id, user_id, title, description, category, location, date_lost, status, image_data_url, created_at, reporter_email";
         const result = await databasePool.query(
-          `SELECT id, user_id, title, description, category, location,
-                  date_lost, status, image_data_url, created_at,
-                  reporter_email, ai_analysis, private_verification, resolved_at
-           FROM lost_items ORDER BY created_at DESC`
+          `SELECT ${columns} FROM lost_items ORDER BY created_at DESC`
         );
         
         return sendJson(res, 200, result.rows);

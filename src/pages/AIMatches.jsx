@@ -46,7 +46,7 @@ function AIMatches() {
         };
 
         const [lostResponse, foundResponse] = await Promise.all([
-          fetchWithTimeout("http://localhost:3001/api/lost-items"),
+          fetchWithTimeout("http://localhost:3001/api/lost-items?summary=true"),
           fetchWithTimeout("http://localhost:3001/api/found-items"),
         ]);
 
