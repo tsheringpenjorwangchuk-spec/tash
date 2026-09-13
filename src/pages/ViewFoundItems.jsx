@@ -18,7 +18,7 @@ function ViewFoundItems() {
  useEffect(() => {
     async function fetchFoundItems() {
       try {
-        const response = await fetch("http://localhost:3001/api/found-items");
+        const response = await fetch("http://localhost:3001/api/found-items?summary=true");
         if (response.ok) {
           const items = await response.json();
           setFoundItems(items);
@@ -117,12 +117,13 @@ function ViewFoundItems() {
               key={item.id}
             >
 
-              {item.imageDataUrl ? (
+              {item.hasImage ? (
 
                 <img
-                  src={item.imageDataUrl}
+                  src={`http://localhost:3001/api/found-items/${item.id}/image`}
                   alt={item.title}
                   className="found-item-image"
+                  loading="lazy"
                 />
 
               ) : (

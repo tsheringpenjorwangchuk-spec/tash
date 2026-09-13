@@ -1,13 +1,40 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaArrowLeft, FaBoxOpen, FaCheckCircle, FaClipboard, FaMapMarkerAlt, FaShieldAlt } from "react-icons/fa";
-import { readList } from "../services/store";
 import "./Claims.css";
 
 export default function FinderDropoff() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const item = useMemo(() => readList("foundItems").find((x) => String(x.id) === String(id)), [id]);
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadItem() {
+      try {
+        const response = await fetch(`http://localhost:3001/api/found-items/${id}`);
+        if (!response.ok) throw new Error("Found item could not be loaded.");
+        const data = await response.json();
+        if (!cancelled) setItem(data);
+      } catch (error) {
+        console.error("Could not load found report:", error);
+        if (!cancelled) setItem(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadItem();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return <main className="claims-page"><div className="claims-shell"><section className="claims-empty"><p>Loading found report…</p></section></div></main>;
+  }
 
   if (!item) {
     return <main className="claims-page"><div className="claims-shell"><section className="claims-empty"><FaBoxOpen/><h2>Found report not found</h2><button className="secondary-action" onClick={() => navigate("/dashboard")}>Back to dashboard</button></section></div></main>;

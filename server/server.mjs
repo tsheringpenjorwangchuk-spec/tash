@@ -72,6 +72,43 @@ const databasePool = new pg.Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+let statsCache = null;
+let statsCacheExpiresAt = 0;
+let statsRequest = null;
+
+function invalidateStatsCache() {
+  statsCache = null;
+  statsCacheExpiresAt = 0;
+}
+
+async function getDashboardStats() {
+  if (statsCache && statsCacheExpiresAt > Date.now()) {
+    return statsCache;
+  }
+
+  if (!statsRequest) {
+    statsRequest = databasePool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM lost_items WHERE status::text NOT IN ('Resolved', 'Claim Approved')) AS lost,
+        (SELECT COUNT(*) FROM found_items WHERE status::text <> 'Collected') AS found,
+        (SELECT COUNT(*) FROM claims WHERE status::text NOT IN ('Rejected', 'Collected')) AS claims
+    `).then((result) => {
+      const row = result.rows[0];
+      statsCache = {
+        lost: Number(row.lost),
+        found: Number(row.found),
+        claims: Number(row.claims),
+      };
+      statsCacheExpiresAt = Date.now() + 30000;
+      return statsCache;
+    }).finally(() => {
+      statsRequest = null;
+    });
+  }
+
+  return statsRequest;
+}
+
 const OPENAI_MODEL =
   process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
@@ -88,6 +125,23 @@ function sendJson(res, status, payload) {
   });
 
   res.end(JSON.stringify(payload));
+}
+
+function sendStoredImage(res, imageDataUrl) {
+  const match = String(imageDataUrl || "").match(
+    /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i
+  );
+
+  if (!match) {
+    return sendJson(res, 404, { error: "Image not found." });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": match[1],
+    "Cache-Control": "public, max-age=300",
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.end(Buffer.from(match[2], "base64"));
 }
 
 // =========================================================
@@ -233,6 +287,31 @@ function simpleVerificationQuestions() {
     "What brand, logo, or visible text is on the item? If none, type none.",
     "Name one distinctive feature of the item (for example a scratch, pattern, strap, sticker, case, or special mark).",
   ];
+}
+
+function localAnalyseItem(item, reportType) {
+  const title = String(item?.title || "").trim();
+  const description = String(item?.description || "").trim();
+  const category = String(item?.category || "").trim();
+  const searchDescription = [title, description, category]
+    .filter(Boolean)
+    .join(". ");
+
+  return {
+    category,
+    object: title,
+    primaryColour: "",
+    secondaryColours: [],
+    brand: "",
+    material: "",
+    visibleText: "",
+    distinctiveFeatures: [],
+    condition: "",
+    searchDescription,
+    suggestedTitle: title,
+    privateVerificationQuestions:
+      reportType === "lost" ? simpleVerificationQuestions() : [],
+  };
 }
 
 // =========================================================
@@ -889,6 +968,7 @@ const server = http.createServer(
           [title.trim(), String(description).trim(), category.trim(), location.trim(), dateFound, itemStatus || "Awaiting Drop-off", dropoffReference || null, imageDataUrl]
         );
 
+        invalidateStatsCache();
         return sendJson(res, 201, result.rows[0]);
       }
 
@@ -898,20 +978,45 @@ const server = http.createServer(
 
       if (
         req.method === "GET" &&
-        req.url === "/api/found-items"
+        (req.url === "/api/found-items" || req.url === "/api/found-items?summary=true")
       ) {
         if (!databasePool) {
           return sendJson(res, 503, { error: "Database not configured." });
         }
 
+        const columns = req.url === "/api/found-items?summary=true"
+          ? `id, title, description, category, location, date_found AS "dateFound",
+             status, dropoff_reference AS "dropoffReference",
+             (image_data_url IS NOT NULL AND image_data_url <> '') AS "hasImage",
+             created_at AS "createdAt"`
+          : `id, title, description, category, location, date_found AS "dateFound",
+             status, dropoff_reference AS "dropoffReference",
+             image_data_url AS "imageDataUrl", created_at AS "createdAt"`;
         const result = await databasePool.query(
-          `SELECT id, title, description, category, location, date_found AS "dateFound", 
-                  status, dropoff_reference AS "dropoffReference", image_data_url AS "imageDataUrl", created_at AS "createdAt"
-           FROM found_items ORDER BY created_at DESC`
+          `SELECT ${columns} FROM found_items ORDER BY created_at DESC`
         );
 
         return sendJson(res, 200, result.rows);
-        return sendJson(res, 200, result.rows);
+      }
+
+      if (
+        req.method === "GET" &&
+        req.url.startsWith("/api/found-items/") &&
+        req.url.endsWith("/image")
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const id = req.url.split("/")[3];
+        const result = await databasePool.query(
+          "SELECT image_data_url FROM found_items WHERE id = $1",
+          [id]
+        );
+        if (!result.rowCount) {
+          return sendJson(res, 404, { error: "Found item not found." });
+        }
+        return sendStoredImage(res, result.rows[0].image_data_url);
       }
       // =====================================================
       // DASHBOARD COUNTS (DATABASE)
@@ -922,19 +1027,7 @@ const server = http.createServer(
           return sendJson(res, 503, { error: "Database not configured." });
         }
 
-        const result = await databasePool.query(`
-          SELECT
-            (SELECT COUNT(*) FROM lost_items WHERE status::text NOT IN ('Resolved', 'Claim Approved')) AS lost,
-            (SELECT COUNT(*) FROM found_items WHERE status::text <> 'Collected') AS found,
-            (SELECT COUNT(*) FROM claims WHERE status::text NOT IN ('Rejected', 'Collected')) AS claims
-        `);
-
-        const row = result.rows[0];
-        return sendJson(res, 200, {
-          lost: Number(row.lost),
-          found: Number(row.found),
-          claims: Number(row.claims),
-        });
+        return sendJson(res, 200, await getDashboardStats());
       }
 
       // =====================================================
@@ -971,6 +1064,7 @@ const server = http.createServer(
           return sendJson(res, 404, { error: "Found item not found." });
         }
 
+        invalidateStatsCache();
         return sendJson(res, 200, {
           ...result.rows[0],
           receivedAt: receivedAt || null,
@@ -1005,6 +1099,7 @@ const server = http.createServer(
            RETURNING id, status, created_at AS "createdAt"`,
           [claimantId || null, claimantEmail || null, lostItemId, foundItemId, score, reason, verificationPassed, correctAnswers, totalQuestions]
         );
+        invalidateStatsCache();
         return sendJson(res, 201, result.rows[0]);
       }
       // =====================================================
@@ -1057,6 +1152,7 @@ const server = http.createServer(
         );
 
         const saved = result.rows[0];
+        invalidateStatsCache();
         return sendJson(res, 201, {
           id: saved.id,
           userId: saved.user_id,
@@ -1084,13 +1180,61 @@ const server = http.createServer(
         }
 
         const columns = req.url === "/api/lost-items?summary=true"
-          ? "id, user_id, title, description, category, location, date_lost, status, created_at, reporter_email"
+          ? `id, user_id, title, description, category, location, date_lost, status,
+             (image_data_url IS NOT NULL AND image_data_url <> '') AS "hasImage",
+             created_at, reporter_email`
           : "id, user_id, title, description, category, location, date_lost, status, image_data_url, created_at, reporter_email";
         const result = await databasePool.query(
           `SELECT ${columns} FROM lost_items ORDER BY created_at DESC`
         );
         
         return sendJson(res, 200, result.rows);
+      }
+
+      if (
+        req.method === "GET" &&
+        req.url.startsWith("/api/lost-items/") &&
+        req.url.endsWith("/image")
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const id = req.url.split("/")[3];
+        const result = await databasePool.query(
+          "SELECT image_data_url FROM lost_items WHERE id = $1",
+          [id]
+        );
+        if (!result.rowCount) {
+          return sendJson(res, 404, { error: "Lost item not found." });
+        }
+        return sendStoredImage(res, result.rows[0].image_data_url);
+      }
+
+      if (
+        req.method === "GET" &&
+        req.url.startsWith("/api/found-items/")
+      ) {
+        if (!databasePool) {
+          return sendJson(res, 503, { error: "Database not configured." });
+        }
+
+        const id = req.url.split("/")[3];
+        const result = await databasePool.query(
+          `SELECT id, title, description, category, location,
+                  date_found AS "dateFound", status,
+                  dropoff_reference AS "dropoffReference",
+                  image_data_url AS "imageDataUrl",
+                  created_at AS "createdAt"
+           FROM found_items WHERE id = $1`,
+          [id]
+        );
+
+        if (!result.rowCount) {
+          return sendJson(res, 404, { error: "Found item not found." });
+        }
+
+        return sendJson(res, 200, result.rows[0]);
       }
 
       // =====================================================
@@ -1120,6 +1264,7 @@ const server = http.createServer(
           return sendJson(res, 404, { error: "Item not found or already deleted." });
         }
 
+        invalidateStatsCache();
         return sendJson(res, 200, { message: "Item deleted successfully." });
       }
 
@@ -1248,27 +1393,40 @@ User details:
 ${JSON.stringify(item)}
 `;
 
-        const text =
-          await callOpenAI(
-            [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "input_text",
-                    text: prompt,
-                  },
-                  {
-                    type: "input_image",
-                    image_url:
-                      imageDataUrl,
-                  },
-                ],
-              },
-            ],
-            "You analyse lost-property photographs accurately and conservatively. Return only valid JSON.",
-            1200
-          );
+        let text;
+        let usedFallback = false;
+
+        try {
+          text = await callOpenAI(
+              [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "input_text",
+                      text: prompt,
+                    },
+                    {
+                      type: "input_image",
+                      image_url:
+                        imageDataUrl,
+                    },
+                  ],
+                },
+              ],
+              "You analyse lost-property photographs accurately and conservatively. Return only valid JSON.",
+              1200
+            );
+        } catch (openAIError) {
+          usedFallback = true;
+          console.error("OpenAI image analysis unavailable:", openAIError.message);
+          return sendJson(res, 200, {
+            analysis: localAnalyseItem(item, reportType),
+            analysisMethod: "local",
+            fallback: true,
+            message: "OpenAI image analysis is unavailable. The report details were used instead; replace OPENAI_API_KEY to enable photo analysis.",
+          });
+        }
 
         let analysis;
 
@@ -1306,6 +1464,8 @@ ${JSON.stringify(item)}
 
         return sendJson(res, 200, {
           analysis,
+          analysisMethod: usedFallback ? "local" : "openai",
+          fallback: usedFallback,
         });
       }
 
@@ -1794,6 +1954,10 @@ server.on("error", (error) => {
 // =========================================================
 
 server.listen(PORT, () => {
+  getDashboardStats().catch((error) => {
+    console.error("Dashboard stats warm-up failed:", error.message);
+  });
+
   console.log(
     `AI backend running at http://localhost:${PORT}`
   );

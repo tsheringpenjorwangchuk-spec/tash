@@ -24,6 +24,7 @@ function ReportFoundItems() {
     imageDataUrl: "",
   });
   const [analysis, setAnalysis] = useState(null);
+  const [analysisNotice, setAnalysisNotice] = useState("");
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,11 +38,13 @@ function ReportFoundItems() {
     if (!dataUrl) return;
     setAnalysing(true);
     setAnalysis(null);
+    setAnalysisNotice("");
     setError("");
     try {
       const result = await aiApi.analyseItem(dataUrl, item, "found");
       const nextAnalysis = result.analysis;
       setAnalysis(nextAnalysis);
+      setAnalysisNotice(result.fallback ? result.message : "");
       setItem((current) => ({
         ...current,
         title: current.title || nextAnalysis?.suggestedTitle || "",
@@ -58,6 +61,7 @@ function ReportFoundItems() {
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0] || null;
     setAnalysis(null);
+    setAnalysisNotice("");
     setError("");
 
     if (!file) {
@@ -195,6 +199,7 @@ function ReportFoundItems() {
           )}
 
           {analysing && <p style={{ marginTop: 12 }}>OpenAI is automatically analysing the uploaded photo…</p>}
+          {analysisNotice && <p style={{ marginTop: 12, color: "#8a6d1d" }}>{analysisNotice}</p>}
 
           {analysis && (
             <section style={{ marginTop: 16, padding: 16, border: "1px solid #ddd", borderRadius: 12 }}>

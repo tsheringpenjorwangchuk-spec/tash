@@ -20,7 +20,7 @@ function ViewLostItems() {
   useEffect(() => {
     const fetchLostItems = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/lost-items");
+        const response = await fetch("http://localhost:3001/api/lost-items?summary=true");
         if (response.ok) {
           const data = await response.json();
           
@@ -28,7 +28,7 @@ function ViewLostItems() {
           const formattedItems = data.map(item => ({
             ...item,
             dateLost: item.date_lost,
-            imageDataUrl: item.image_data_url
+            hasImage: item.hasImage
           }));
           
           setLostItems(formattedItems);
@@ -150,11 +150,12 @@ function ViewLostItems() {
                   IMAGE
                   ===================================== */}
 
-              {item.imageDataUrl ? (
+              {item.hasImage ? (
                 <img
-                  src={item.imageDataUrl}
+                  src={`http://localhost:3001/api/lost-items/${item.id}/image`}
                   alt={item.title || "Lost item"}
                   className="found-item-image"
+                  loading="lazy"
                 />
               ) : (
                 <div className="found-item-image-placeholder">
