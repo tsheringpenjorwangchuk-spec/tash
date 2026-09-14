@@ -14,39 +14,17 @@ function ViewLostItems() {
   const navigate = useNavigate();
 
   const [lostItems, setLostItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Load saved lost items from the Neon Database via backend API
+  // Load saved lost items
   useEffect(() => {
-    const fetchLostItems = async () => {
-      try {
-        const response = await fetch("http://localhost:3001/api/lost-items?summary=true");
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Map database snake_case columns to frontend camelCase expectations
-          const formattedItems = data.map(item => ({
-            ...item,
-            dateLost: item.date_lost,
-            hasImage: item.hasImage
-          }));
-          
-          setLostItems(formattedItems);
-        } else {
-          console.error("Failed to fetch items");
-        }
-      } catch (error) {
-        console.error("Error fetching lost items:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    const savedItems =
+      JSON.parse(localStorage.getItem("lostItems") || "[]");
 
-    fetchLostItems();
+    setLostItems(savedItems);
   }, []);
 
-  // Delete lost item from the Neon Database via backend API
-  const handleDelete = async (id) => {
+  // Delete lost item
+  const handleDelete = (id) => {
     const confirmed = window.confirm(
       "Are you sure you want to delete this lost item?"
     );
@@ -55,24 +33,16 @@ function ViewLostItems() {
       return;
     }
 
-    try {
-      const response = await fetch(`http://localhost:3001/api/lost-items/${id}`, {
-        method: "DELETE",
-      });
+    const updatedItems = lostItems.filter(
+      (item) => String(item.id) !== String(id)
+    );
 
-      if (response.ok) {
-        // Remove item from UI state only after database confirms deletion
-        const updatedItems = lostItems.filter(
-          (item) => String(item.id) !== String(id)
-        );
-        setLostItems(updatedItems);
-      } else {
-        alert("Failed to delete the item from the database.");
-      }
-    } catch (error) {
-      console.error("Error deleting lost item:", error);
-      alert("An error occurred while deleting the item.");
-    }
+    setLostItems(updatedItems);
+
+    localStorage.setItem(
+      "lostItems",
+      JSON.stringify(updatedItems)
+    );
   };
 
   return (
@@ -83,18 +53,23 @@ function ViewLostItems() {
           ========================================= */}
 
       <div className="view-header">
+
         <div>
+
           <p className="view-eyebrow">
             LOST & FOUND
           </p>
+
           <h1>
             <FaBoxOpen />
             Lost Items
           </h1>
+
           <p>
             Items reported as lost and available
             for potential matching.
           </p>
+
         </div>
 
         <button
@@ -104,27 +79,29 @@ function ViewLostItems() {
           <FaArrowLeft />
           Dashboard
         </button>
+
       </div>
 
 
       {/* =========================================
-          STATE HANDLING (LOADING / EMPTY / LIST)
+          EMPTY STATE
           ========================================= */}
 
-      {isLoading ? (
+      {lostItems.length === 0 ? (
+
         <div className="empty-found-state">
-          <h2>Loading items...</h2>
-        </div>
-      ) : lostItems.length === 0 ? (
-        <div className="empty-found-state">
+
           <FaBoxOpen />
+
           <h2>
             No lost items yet
           </h2>
+
           <p>
             Report a lost item to make it available
             for AI matching.
           </p>
+
           <button
             onClick={() =>
               navigate("/report-lost-item")
@@ -132,7 +109,9 @@ function ViewLostItems() {
           >
             Report Lost Item
           </button>
+
         </div>
+
       ) : (
 
         /* =========================================
@@ -140,7 +119,9 @@ function ViewLostItems() {
            ========================================= */
 
         <div className="found-items-list">
+
           {lostItems.map((item) => (
+
             <article
               className="found-item-card-list"
               key={item.id}
@@ -150,17 +131,20 @@ function ViewLostItems() {
                   IMAGE
                   ===================================== */}
 
-              {item.hasImage ? (
+              {item.imageDataUrl ? (
+
                 <img
-                  src={`http://localhost:3001/api/lost-items/${item.id}/image`}
+                  src={item.imageDataUrl}
                   alt={item.title || "Lost item"}
                   className="found-item-image"
-                  loading="lazy"
                 />
+
               ) : (
+
                 <div className="found-item-image-placeholder">
                   <FaBoxOpen />
                 </div>
+
               )}
 
 
@@ -171,28 +155,40 @@ function ViewLostItems() {
               <div className="found-item-details">
 
                 {/* TITLE + STATUS */}
+
                 <div className="found-item-title-row">
+
                   <div>
+
                     <span className="found-item-label">
                       LOST ITEM
                     </span>
+
                     <h2>
                       {item.title}
                     </h2>
+
                   </div>
+
                   <span className="found-status">
                     {item.status || "Lost"}
                   </span>
+
                 </div>
 
+
                 {/* DESCRIPTION */}
+
                 <p className="found-description">
                   {item.description ||
                     "No description provided."}
                 </p>
 
+
                 {/* META INFORMATION */}
+
                 <div className="found-meta">
+
                   <span>
                     <strong>
                       Category:
@@ -213,10 +209,14 @@ function ViewLostItems() {
                     </strong>{" "}
                     {item.dateLost || "Not specified"}
                   </span>
+
                 </div>
 
+
                 {/* ACTIONS */}
+
                 <div className="found-actions">
+
                   <button
                     className="edit-btn"
                     onClick={() =>
@@ -229,6 +229,7 @@ function ViewLostItems() {
                     Edit
                   </button>
 
+
                   <button
                     className="delete-btn"
                     onClick={() =>
@@ -238,12 +239,19 @@ function ViewLostItems() {
                     <FaTrash />
                     Delete
                   </button>
+
                 </div>
+
               </div>
+
             </article>
+
           ))}
+
         </div>
+
       )}
+
     </main>
   );
 }

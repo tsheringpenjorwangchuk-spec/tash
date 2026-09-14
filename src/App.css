@@ -1,47 +1,153 @@
 :root {
+  /* =========================================================
+     BRAND COLOURS
+     ========================================================= */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
 
-    /* Brand Colours */
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-
-
-    /* Background */
-    --dark-green: #0f3d2e;
-    --dark-bg: #eaf3ff;
-
-
-    /* Glass Effect */
-    --glass:
-    rgba(255,255,255,0.12);
+  --teal: #14b8a6;
+  --teal-light: #2dd4bf;
 
 
-    --glass-hover:
-    rgba(255,255,255,0.18);
+  /* =========================================================
+     BACKGROUNDS
+     ========================================================= */
+  --dark-bg: #07111f;
+  --dark-navy: #0b1728;
+  --dark-surface: #102238;
 
 
-    --border:
-    rgba(255,255,255,0.25);
+  /* =========================================================
+     GLASS EFFECT
+     ========================================================= */
+  --glass:
+    rgba(11, 23, 40, 0.88);
+
+  --glass-hover:
+    rgba(37, 99, 235, 0.10);
+
+  --border:
+    rgba(148, 163, 184, 0.16);
+
+  --border-blue:
+    rgba(37, 99, 235, 0.25);
+
+  --border-teal:
+    rgba(20, 184, 166, 0.25);
 
 
-    /* Text */
-    --text-main:
-    #ffffff;
+  /* =========================================================
+     TEXT
+     ========================================================= */
+  --text-main:
+    #f8fafc;
+
+  --text-muted:
+    #94a3b8;
+
+  --text-soft:
+    #cbd5e1;
 
 
-    --text-muted:
-    #334155;
+  /* =========================================================
+     STATUS COLOURS
+     Keep these separate from the main brand palette.
+     ========================================================= */
+  --success:
+    #22c55e;
+
+  --warning:
+    #f59e0b;
+
+  --danger:
+    #ef4444;
+
+  --info:
+    #38bdf8;
 
 
-    /* Shadow */
-    --shadow:
-    0 20px 50px rgba(0,0,0,0.35);
+  /* =========================================================
+     SHADOW
+     ========================================================= */
+  --shadow:
+    0 20px 50px rgba(0, 0, 0, 0.38);
 
+  --shadow-blue:
+    0 16px 40px rgba(37, 99, 235, 0.16);
 
+  --shadow-teal:
+    0 16px 40px rgba(20, 184, 166, 0.12);
 }
-/* Bright demo theme safety overrides */
-:where(.claim-card,.verify-card,.claim-summary-card,.collection-card,.admin-review-panel,.handover-panel,.lost-item-card,.found-item-card,.dashboard-card,.stat-card,.ai-card,.chat-card) {
-  color: #10213b;
+
+
+/* =========================================================
+   BLUE + TEAL THEME SAFETY OVERRIDES
+   ========================================================= */
+
+:where(
+  .claim-card,
+  .verify-card,
+  .claim-summary-card,
+  .collection-card,
+  .admin-review-panel,
+  .handover-panel,
+  .lost-item-card,
+  .found-item-card,
+  .dashboard-card,
+  .stat-card,
+  .ai-card,
+  .chat-card
+) {
+  color: var(--text-main);
 }
-:where(input, textarea, select) {
-  color: #10213b;
+
+
+/* =========================================================
+   FORM TEXT
+   ========================================================= */
+
+:where(
+  input,
+  textarea,
+  select
+) {
+  color: var(--text-main);
+}
+
+
+/* Placeholder text */
+
+:where(
+  input,
+  textarea,
+  select
+)::placeholder {
+  color: #64748b;
+}
+
+
+/* =========================================================
+   FORM FOCUS
+   ========================================================= */
+
+:where(
+  input,
+  textarea,
+  select
+):focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.12),
+    0 0 18px rgba(37, 99, 235, 0.08);
+}
+
+
+/* =========================================================
+   TEXT SELECTION
+   ========================================================= */
+
+::selection {
+  background: rgba(37, 99, 235, 0.30);
+  color: #ffffff;
 }

@@ -1,74 +1,1263 @@
-/* =========================================
+/* =========================================================
    DELETE LOST ITEM
-   Matches UserDashboard Theme
-   ========================================= */
+   BLUE + TEAL / DEEP NAVY THEME
+   ========================================================= */
 
-.delete-lost-item-container {
-    width: 400px;
-    max-width: calc(100% - 40px);
-
-    margin: 50px auto;
-    padding: 30px;
-
-    text-align: center;
-
-    border-radius: var(--radius);
-
-    background: var(--glass);
-
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-
-    border: 1px solid var(--border);
-
-    box-shadow: var(--shadow);
-
-    color: var(--text-main);
+.delete-page {
+  min-height: calc(100vh - 72px);
+  padding: 42px 24px 60px;
+  color: #f8fafc;
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      rgba(37, 99, 235, 0.16),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 92% 18%,
+      rgba(20, 184, 166, 0.11),
+      transparent 27%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(37, 99, 235, 0.07),
+      transparent 34%
+    ),
+    #07111f;
 }
 
 
-/* =========================================
-   ITEM CARD
-   ========================================= */
+/* =========================================================
+   WORKSPACE
+   ========================================================= */
 
-.item-card {
-    padding: 20px;
-
-    border: 1px solid var(--border);
-
-    border-radius: 15px;
-
-    background: rgba(255, 255, 255, 0.06);
-
-    color: var(--text-main);
+.delete-workspace {
+  width: min(1240px, 100%);
+  margin: 0 auto;
 }
 
 
-/* =========================================
-   BUTTON
-   ========================================= */
+/* =========================================================
+   HEADER
+   ========================================================= */
 
-.item-card button {
-    padding: 12px 25px;
+.delete-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 22px;
+}
 
-    border: none;
-    border-radius: 10px;
+.delete-header-main {
+  max-width: 760px;
+}
 
-    background: var(--primary);
+.delete-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 25px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
 
-    color: white;
+.delete-back-button svg {
+  color: #2dd4bf;
+  font-size: 12px;
+}
 
-    font-size: 15px;
-    font-weight: 700;
+.delete-back-button:hover {
+  color: #f8fafc;
+  transform: translateX(-3px);
+}
 
-    cursor: pointer;
+.delete-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  color: #2dd4bf;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
 
-    transition: 0.25s ease;
+.delete-eyebrow-icon {
+  width: 27px;
+  height: 27px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(20, 184, 166, 0.16),
+      rgba(37, 99, 235, 0.12)
+    );
+  color: #2dd4bf;
+  font-size: 11px;
+}
+
+.delete-header h1 {
+  margin: 0 0 11px;
+  color: #f8fafc;
+  font-size: clamp(34px, 5vw, 50px);
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+}
+
+.delete-header p {
+  max-width: 670px;
+  margin: 0;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.75;
 }
 
 
-.item-card button:hover {
-    background: var(--primary-hover);
+/* =========================================================
+   SECURITY BADGE
+   ========================================================= */
 
-    transform: translateY(-2px);
+.delete-security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 170px;
+  padding: 11px 14px;
+  border: 1px solid rgba(45, 212, 191, 0.16);
+  border-radius: 15px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(20, 184, 166, 0.09),
+      rgba(37, 99, 235, 0.06)
+    );
+  color: #cbd5e1;
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.security-badge-icon {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: rgba(20, 184, 166, 0.11);
+  color: #2dd4bf;
+  font-size: 13px;
+}
+
+.delete-security-badge span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
+.delete-security-badge strong {
+  color: #dbeafe;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   CONTEXT BAR
+   ========================================================= */
+
+.delete-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 11px 15px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 13px;
+  background: rgba(11, 23, 40, 0.58);
+}
+
+.delete-context-bar > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.delete-context-bar span,
+.delete-context-bar strong {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.delete-context-bar strong {
+  color: #cbd5e1;
+}
+
+.delete-context-bar svg {
+  color: #334155;
+  font-size: 8px;
+}
+
+.delete-context-id {
+  padding: 5px 9px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 7px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #60a5fa !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
+
+.delete-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 18px;
+  align-items: stretch;
+}
+
+
+/* =========================================================
+   SHARED PANELS
+   ========================================================= */
+
+.delete-item-panel,
+.delete-warning-panel {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 26px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(11, 23, 40, 0.96),
+      rgba(7, 17, 31, 0.98)
+    );
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+
+/* =========================================================
+   ITEM PANEL
+   ========================================================= */
+
+.delete-item-panel {
+  padding: 31px;
+}
+
+.delete-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 23px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.delete-section-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.delete-panel-header h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.delete-panel-subtitle {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   STATUS BADGE
+   ========================================================= */
+
+.delete-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(20, 184, 166, 0.18);
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.07);
+  color: #5eead4;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.delete-status-badge span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.55);
+}
+
+
+/* =========================================================
+   ITEM VISUAL
+   ========================================================= */
+
+.delete-item-visual {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  margin: 24px 0 25px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 19px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.08),
+      rgba(20, 184, 166, 0.045)
+    );
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.delete-item-visual:hover {
+  border-color: rgba(45, 212, 191, 0.2);
+  transform: translateY(-1px);
+}
+
+.delete-device-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 60px;
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  border-radius: 17px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(37, 99, 235, 0.18),
+      rgba(20, 184, 166, 0.11)
+    );
+  color: #5eead4;
+  font-size: 23px;
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.delete-item-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.delete-item-visual span,
+.delete-item-visual small {
+  display: block;
+}
+
+.delete-item-visual span {
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.delete-item-visual strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #f1f5f9;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.delete-item-visual small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.delete-item-arrow {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #475569;
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   DETAILS HEADING
+   ========================================================= */
+
+.delete-details-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.delete-details-heading span {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.delete-details-heading small {
+  color: #475569;
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   DETAILS GRID
+   ========================================================= */
+
+.delete-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.delete-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.022);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.delete-detail:hover {
+  background: rgba(37, 99, 235, 0.045);
+  border-color: rgba(45, 212, 191, 0.13);
+  transform: translateY(-2px);
+}
+
+.delete-detail-icon {
+  width: 31px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 31px;
+  border: 1px solid rgba(37, 99, 235, 0.13);
+  border-radius: 9px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(37, 99, 235, 0.12),
+      rgba(20, 184, 166, 0.07)
+    );
+  color: #2dd4bf;
+  font-size: 11px;
+}
+
+.delete-detail div {
+  min-width: 0;
+}
+
+.delete-detail div > span {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.delete-detail strong {
+  display: block;
+  color: #dbeafe;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   REVIEW NOTE
+   ========================================================= */
+
+.delete-review-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid rgba(37, 99, 235, 0.11);
+  border-radius: 14px;
+  background: rgba(37, 99, 235, 0.045);
+}
+
+.delete-review-icon {
+  width: 27px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 27px;
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.1);
+  color: #2dd4bf;
+  font-size: 10px;
+}
+
+.delete-review-note strong,
+.delete-review-note span {
+  display: block;
+}
+
+.delete-review-note strong {
+  margin-bottom: 3px;
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.delete-review-note span {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   WARNING PANEL
+   ========================================================= */
+
+.delete-warning-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 31px;
+}
+
+.delete-warning-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 21px;
+}
+
+.delete-warning-icon {
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 17px;
+  background: rgba(245, 158, 11, 0.08);
+  color: #fbbf24;
+  font-size: 19px;
+}
+
+.delete-warning-badge {
+  padding: 6px 9px;
+  border: 1px solid rgba(245, 158, 11, 0.16);
+  border-radius: 7px;
+  background: rgba(245, 158, 11, 0.06);
+  color: #fbbf24;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.delete-warning-panel h2 {
+  margin: 0 0 10px;
+  color: #f8fafc;
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.delete-warning-panel > p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   WARNING DIVIDER
+   ========================================================= */
+
+.delete-warning-divider {
+  height: 1px;
+  margin: 23px 0 4px;
+  background: rgba(148, 163, 184, 0.09);
+}
+
+
+/* =========================================================
+   WARNING LIST
+   ========================================================= */
+
+.delete-warning-list {
+  display: flex;
+  flex-direction: column;
+  margin: 5px 0 23px;
+}
+
+.delete-warning-list > div {
+  display: grid;
+  grid-template-columns: 31px 1fr;
+  gap: 11px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.07);
+}
+
+.delete-warning-list > div:last-child {
+  border-bottom: 0;
+}
+
+.delete-warning-list > div > span {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.delete-warning-list strong {
+  display: block;
+  margin: 1px 0 3px;
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.delete-warning-list p {
+  margin: 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   ACTION AREA
+   ========================================================= */
+
+.delete-action-area {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.delete-confirm-button {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px 18px;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 13px;
+  background:
+    linear-gradient(
+      135deg,
+      #dc2626,
+      #b91c1c
+    );
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow:
+    0 12px 28px rgba(127, 29, 29, 0.2);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.delete-confirm-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 16px 35px rgba(127, 29, 29, 0.3);
+}
+
+.delete-confirm-button:active {
+  transform: translateY(0);
+}
+
+.delete-cancel-button {
+  width: 100%;
+  min-height: 45px;
+  margin-top: 9px;
+  padding: 11px;
+  border: 1px solid rgba(148, 163, 184, 0.11);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #94a3b8;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.delete-cancel-button:hover {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(45, 212, 191, 0.14);
+  color: #e2e8f0;
+}
+
+
+/* =========================================================
+   FOOTER NOTE
+   ========================================================= */
+
+.delete-footer-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 15px;
+  background: rgba(11, 23, 40, 0.52);
+}
+
+.delete-footer-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.08);
+  color: #2dd4bf;
+  font-size: 10px;
+}
+
+.delete-footer-note strong,
+.delete-footer-note span {
+  display: block;
+}
+
+.delete-footer-note strong {
+  margin-bottom: 3px;
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+.delete-footer-note span {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   DELETED / COMPLETE STATE
+   ========================================================= */
+
+.delete-complete {
+  position: relative;
+  min-height: 650px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 60px 30px;
+  text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 28px;
+  background:
+    radial-gradient(
+      circle at 50% 10%,
+      rgba(20, 184, 166, 0.1),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 30% 90%,
+      rgba(37, 99, 235, 0.08),
+      transparent 30%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(11, 23, 40, 0.97),
+      rgba(7, 17, 31, 0.99)
+    );
+  box-shadow:
+    0 30px 85px rgba(0, 0, 0, 0.3);
+}
+
+.delete-complete-glow {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  width: 180px;
+  height: 180px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(20, 184, 166, 0.08);
+  filter: blur(55px);
+  pointer-events: none;
+}
+
+.delete-complete-icon {
+  position: relative;
+  z-index: 1;
+  width: 82px;
+  height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  border-radius: 25px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(20, 184, 166, 0.14),
+      rgba(37, 99, 235, 0.1)
+    );
+  color: #2dd4bf;
+  font-size: 27px;
+  box-shadow:
+    0 0 55px rgba(20, 184, 166, 0.08);
+}
+
+.delete-complete-eyebrow {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #2dd4bf;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.delete-complete-eyebrow > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.5);
+}
+
+.delete-complete h1 {
+  position: relative;
+  z-index: 1;
+  max-width: 650px;
+  margin: 9px 0 12px;
+  color: #f8fafc;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.07;
+  letter-spacing: -0.045em;
+}
+
+.delete-complete > p {
+  position: relative;
+  z-index: 1;
+  max-width: 510px;
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+
+/* =========================================================
+   COMPLETE STATUS
+   ========================================================= */
+
+.delete-complete-status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 10px 14px;
+  border: 1px solid rgba(20, 184, 166, 0.13);
+  border-radius: 12px;
+  background: rgba(20, 184, 166, 0.05);
+  text-align: left;
+}
+
+.delete-complete-status > svg {
+  color: #2dd4bf;
+  font-size: 13px;
+}
+
+.delete-complete-status span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.delete-complete-status strong {
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   COMPLETE ACTIONS
+   ========================================================= */
+
+.delete-complete-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.delete-primary-action,
+.delete-secondary-action {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 17px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.delete-primary-action {
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #14b8a6
+    );
+  color: #fff;
+  box-shadow:
+    0 10px 28px rgba(37, 99, 235, 0.18);
+}
+
+.delete-primary-action:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 15px 32px rgba(37, 99, 235, 0.25);
+}
+
+.delete-secondary-action {
+  border: 1px solid rgba(148, 163, 184, 0.11);
+  background: rgba(255, 255, 255, 0.025);
+  color: #94a3b8;
+}
+
+.delete-secondary-action:hover {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(45, 212, 191, 0.14);
+  color: #e2e8f0;
+}
+
+
+/* =========================================================
+   FOCUS STATES
+   ========================================================= */
+
+.delete-back-button:focus-visible,
+.delete-confirm-button:focus-visible,
+.delete-cancel-button:focus-visible,
+.delete-primary-action:focus-visible,
+.delete-secondary-action:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 3px;
+}
+
+
+/* =========================================================
+   RESPONSIVE — 1050px
+   ========================================================= */
+
+@media (max-width: 1050px) {
+  .delete-content {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+
+  .delete-item-panel,
+  .delete-warning-panel {
+    padding: 27px;
+  }
+
+  .delete-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 900px
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .delete-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .delete-security-badge {
+    align-self: flex-start;
+  }
+
+  .delete-content {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-warning-panel {
+    min-height: auto;
+  }
+
+  .delete-action-area {
+    margin-top: 8px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 700px
+   ========================================================= */
+
+@media (max-width: 700px) {
+  .delete-page {
+    padding: 28px 15px 45px;
+  }
+
+  .delete-header {
+    gap: 20px;
+  }
+
+  .delete-header h1 {
+    font-size: 35px;
+  }
+
+  .delete-context-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .delete-item-panel,
+  .delete-warning-panel {
+    padding: 23px;
+    border-radius: 21px;
+  }
+
+  .delete-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-item-visual {
+    padding: 16px;
+  }
+
+  .delete-footer-note {
+    padding: 14px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 520px
+   ========================================================= */
+
+@media (max-width: 520px) {
+  .delete-page {
+    padding: 22px 12px 35px;
+  }
+
+  .delete-header h1 {
+    font-size: 31px;
+  }
+
+  .delete-header p {
+    font-size: 13px;
+  }
+
+  .delete-security-badge {
+    width: 100%;
+  }
+
+  .delete-context-bar > div {
+    flex-wrap: wrap;
+  }
+
+  .delete-panel-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .delete-status-badge {
+    align-self: flex-start;
+  }
+
+  .delete-item-visual {
+    gap: 12px;
+  }
+
+  .delete-device-icon {
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+    border-radius: 14px;
+    font-size: 19px;
+  }
+
+  .delete-item-visual strong {
+    font-size: 16px;
+  }
+
+  .delete-item-arrow {
+    display: none;
+  }
+
+  .delete-warning-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .delete-complete {
+    min-height: 540px;
+    padding: 45px 20px;
+    border-radius: 22px;
+  }
+
+  .delete-complete-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .delete-primary-action,
+  .delete-secondary-action {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 380px
+   ========================================================= */
+
+@media (max-width: 380px) {
+  .delete-item-panel,
+  .delete-warning-panel {
+    padding: 19px;
+  }
+
+  .delete-header h1 {
+    font-size: 28px;
+  }
+
+  .delete-warning-panel h2 {
+    font-size: 23px;
+  }
+
+  .delete-complete h1 {
+    font-size: 29px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .delete-back-button,
+  .delete-item-visual,
+  .delete-detail,
+  .delete-confirm-button,
+  .delete-cancel-button,
+  .delete-primary-action,
+  .delete-secondary-action {
+    transition: none;
+  }
+
+  .delete-back-button:hover,
+  .delete-item-visual:hover,
+  .delete-detail:hover,
+  .delete-confirm-button:hover,
+  .delete-primary-action:hover {
+    transform: none;
+  }
 }

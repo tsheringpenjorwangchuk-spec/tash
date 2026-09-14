@@ -15,19 +15,12 @@ function ViewFoundItems() {
 
   const [foundItems, setFoundItems] = useState([]);
 
- useEffect(() => {
-    async function fetchFoundItems() {
-      try {
-        const response = await fetch("http://localhost:3001/api/found-items?summary=true");
-        if (response.ok) {
-          const items = await response.json();
-          setFoundItems(items);
-        }
-      } catch (err) {
-        console.error("Failed to load found items from database:", err);
-      }
-    }
-    fetchFoundItems();
+  useEffect(() => {
+    const storedItems = JSON.parse(
+      localStorage.getItem("foundItems") || "[]"
+    );
+
+    setFoundItems(storedItems);
   }, []);
 
   const handleDelete = (id) => {
@@ -117,13 +110,12 @@ function ViewFoundItems() {
               key={item.id}
             >
 
-              {item.hasImage ? (
+              {item.imageDataUrl ? (
 
                 <img
-                  src={`http://localhost:3001/api/found-items/${item.id}/image`}
+                  src={item.imageDataUrl}
                   alt={item.title}
                   className="found-item-image"
-                  loading="lazy"
                 />
 
               ) : (

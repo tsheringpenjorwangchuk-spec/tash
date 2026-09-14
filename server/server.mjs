@@ -2,7 +2,6 @@ import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import pg from "pg";
 
 import {
   sendMail,
@@ -14,6 +13,17 @@ import {
   emailConfigured,
   testEmail,
 } from "./mailer.mjs";
+
+import {
+  databaseConfigured,
+  dbHealth,
+  listLostItems,
+  upsertLostItem,
+  listFoundItems,
+  upsertFoundItem,
+  listClaims,
+  upsertClaim,
+} from "./database/postgres.mjs";
 
 // =========================================================
 // LOAD .ENV
@@ -57,57 +67,9 @@ for (const envPath of envCandidates) {
 // CONFIGURATION
 // =========================================================
 
-
 const PORT = Number(process.env.PORT || 3001);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-// Directly fallback to your Neon connection string if .env is not detected
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_tfSTrOl5vRG3@ep-delicate-field-aesfymxp-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require";
-
-const databasePool = new pg.Pool({
-  connectionString: databaseUrl,
-  ssl: { rejectUnauthorized: false },
-});
-
-let statsCache = null;
-let statsCacheExpiresAt = 0;
-let statsRequest = null;
-
-function invalidateStatsCache() {
-  statsCache = null;
-  statsCacheExpiresAt = 0;
-}
-
-async function getDashboardStats() {
-  if (statsCache && statsCacheExpiresAt > Date.now()) {
-    return statsCache;
-  }
-
-  if (!statsRequest) {
-    statsRequest = databasePool.query(`
-      SELECT
-        (SELECT COUNT(*) FROM lost_items WHERE status::text NOT IN ('Resolved', 'Claim Approved')) AS lost,
-        (SELECT COUNT(*) FROM found_items WHERE status::text <> 'Collected') AS found,
-        (SELECT COUNT(*) FROM claims WHERE status::text NOT IN ('Rejected', 'Collected')) AS claims
-    `).then((result) => {
-      const row = result.rows[0];
-      statsCache = {
-        lost: Number(row.lost),
-        found: Number(row.found),
-        claims: Number(row.claims),
-      };
-      statsCacheExpiresAt = Date.now() + 30000;
-      return statsCache;
-    }).finally(() => {
-      statsRequest = null;
-    });
-  }
-
-  return statsRequest;
-}
 
 const OPENAI_MODEL =
   process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -121,27 +83,10 @@ function sendJson(res, status, payload) {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS", // Added PUT here
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   });
 
   res.end(JSON.stringify(payload));
-}
-
-function sendStoredImage(res, imageDataUrl) {
-  const match = String(imageDataUrl || "").match(
-    /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i
-  );
-
-  if (!match) {
-    return sendJson(res, 404, { error: "Image not found." });
-  }
-
-  res.writeHead(200, {
-    "Content-Type": match[1],
-    "Cache-Control": "public, max-age=300",
-    "Access-Control-Allow-Origin": "*",
-  });
-  res.end(Buffer.from(match[2], "base64"));
 }
 
 // =========================================================
@@ -230,7 +175,7 @@ async function callOpenAI(
     throw error;
   }
 
-const response = await fetch(
+  const response = await fetch(
     "https://api.openai.com/v1/responses",
     {
       method: "POST",
@@ -278,40 +223,13 @@ const response = await fetch(
 }
 
 // =========================================================
-// VERIFICATION QUESTIONS
+// VERIFICATION QUESTION SAFETY
 // =========================================================
 
-function simpleVerificationQuestions() {
-  return [
-    "What is the main colour and one secondary colour of your item?",
-    "What brand, logo, or visible text is on the item? If none, type none.",
-    "Name one distinctive feature of the item (for example a scratch, pattern, strap, sticker, case, or special mark).",
-  ];
-}
-
-function localAnalyseItem(item, reportType) {
-  const title = String(item?.title || "").trim();
-  const description = String(item?.description || "").trim();
-  const category = String(item?.category || "").trim();
-  const searchDescription = [title, description, category]
-    .filter(Boolean)
-    .join(". ");
-
-  return {
-    category,
-    object: title,
-    primaryColour: "",
-    secondaryColours: [],
-    brand: "",
-    material: "",
-    visibleText: "",
-    distinctiveFeatures: [],
-    condition: "",
-    searchDescription,
-    suggestedTitle: title,
-    privateVerificationQuestions:
-      reportType === "lost" ? simpleVerificationQuestions() : [],
-  };
+function sanitiseVerificationQuestions(value) {
+  if (!Array.isArray(value)) return [];
+  const blocked = /password|passcode|pin\b|bank|card number|cvv|authentication|one[- ]?time code|otp|full id|passport number|licen[cs]e number|biometric|fingerprint|face id/i;
+  return [...new Set(value.map((q) => String(q || "").trim()).filter((q) => q.length >= 12 && q.length <= 180).filter((q) => !blocked.test(q)))].slice(0, 3);
 }
 
 // =========================================================
@@ -392,6 +310,7 @@ function getAllText(item) {
     item?.visibleText,
     item?.condition,
     item?.searchDescription,
+    item?.manualSearchQuery,
 
     analysis?.title,
     analysis?.description,
@@ -475,6 +394,10 @@ function similarityScore(lostItem, foundItem) {
   const matchingFeatures = [];
   const differences = [];
 
+  // -------------------------------------------------------
+  // Category
+  // -------------------------------------------------------
+
   const lostCategory = getField(
     lostItem,
     ["category"]
@@ -505,6 +428,10 @@ function similarityScore(lostItem, foundItem) {
     );
   }
 
+  // -------------------------------------------------------
+  // Object type
+  // -------------------------------------------------------
+
   const lostObject = getField(
     lostItem,
     ["object", "itemType", "type"]
@@ -534,6 +461,10 @@ function similarityScore(lostItem, foundItem) {
       `Object type differs: ${lostObject} vs ${foundObject}`
     );
   }
+
+  // -------------------------------------------------------
+  // Colour
+  // -------------------------------------------------------
 
   const lostColours = unique([
     getField(lostItem, [
@@ -583,6 +514,10 @@ function similarityScore(lostItem, foundItem) {
     );
   }
 
+  // -------------------------------------------------------
+  // Brand
+  // -------------------------------------------------------
+
   const lostBrand = getField(
     lostItem,
     ["brand"]
@@ -612,6 +547,10 @@ function similarityScore(lostItem, foundItem) {
       `Brand differs: ${lostBrand} vs ${foundBrand}`
     );
   }
+
+  // -------------------------------------------------------
+  // Location
+  // -------------------------------------------------------
 
   const lostLocation = getField(
     lostItem,
@@ -643,6 +582,10 @@ function similarityScore(lostItem, foundItem) {
     );
   }
 
+  // -------------------------------------------------------
+  // Material
+  // -------------------------------------------------------
+
   const lostMaterial = getField(
     lostItem,
     ["material"]
@@ -665,6 +608,10 @@ function similarityScore(lostItem, foundItem) {
       `Material: ${lostMaterial}`
     );
   }
+
+  // -------------------------------------------------------
+  // Description / keywords
+  // -------------------------------------------------------
 
   const lostText = getAllText(lostItem);
   const foundText = getAllText(foundItem);
@@ -690,6 +637,10 @@ function similarityScore(lostItem, foundItem) {
         .join(", ")}`
     );
   }
+
+  // -------------------------------------------------------
+  // Date proximity
+  // -------------------------------------------------------
 
   const lostDate =
     lostItem?.dateLost ||
@@ -813,12 +764,7 @@ Redirect unrelated questions to lost-and-found support.
 const server = http.createServer(
   async (req, res) => {
     if (req.method === "OPTIONS") {
-      res.writeHead(204, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      });
-      return res.end();
+      return sendJson(res, 204, {});
     }
 
     try {
@@ -836,436 +782,59 @@ const server = http.createServer(
             Boolean(OPENAI_API_KEY),
           model: OPENAI_MODEL,
           emailConfigured,
-          databaseConfigured: Boolean(databasePool),
         });
       }
 
       // =====================================================
-      // STATE SYNC (DATABASE)
+      // POSTGRESQL DATA API (optional until frontend migration)
       // =====================================================
 
-      if (
-        req.method === "PUT" &&
-        req.url === "/api/state"
-      ) {
-        const body = await readJson(req);
-        sendJson(res, 200, { success: true, state: body });
-        return;
-      }
-
-      // =====================================================
-      // USER REGISTRATION
-      // =====================================================
-
-      if (
-        req.method === "POST" &&
-        req.url === "/api/auth/register"
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
+      if (req.method === "GET" && req.url === "/api/db/health") {
+        if (!databaseConfigured()) {
+          return sendJson(res, 200, { configured: false, connected: false });
         }
-
-        const { name, email, password } = await readJson(req);
-        const normalizedEmail = String(email || "").trim().toLowerCase();
-
-        if (!name?.trim() || !normalizedEmail || !password) {
-          return sendJson(res, 400, { error: "Name, email, and password are required." });
-        }
-
         try {
-          const result = await databasePool.query(
-            `INSERT INTO users (id, full_name, email, password_hash, created_at)
-             VALUES (gen_random_uuid(), $1, $2, $3, NOW())
-             RETURNING id, full_name AS name, email, created_at`,
-            [name.trim(), normalizedEmail, String(password)]
-          );
-
-          return sendJson(res, 201, result.rows[0]);
+          const info = await dbHealth();
+          return sendJson(res, 200, { configured: true, connected: true, ...info });
         } catch (error) {
-          if (error.code === "23505") {
-            return sendJson(res, 409, { error: "An account with this email already exists." });
-          }
-          console.error("Database insert error:", error);
-          return sendJson(res, 500, { error: "Database error: " + error.message });
+          return sendJson(res, 503, { configured: true, connected: false, error: error.message });
         }
       }
-     // =====================================================
-      // USER LOGIN
-      // =====================================================
 
-      if (
-        req.method === "POST" &&
-        (req.url === "/api/auth/login" || req.url === "/api/login")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const { email, password } = await readJson(req);
-        const normalizedEmail = String(email || "").trim().toLowerCase();
-
-        if (!normalizedEmail || !password) {
-          return sendJson(res, 400, { error: "Email and password are required." });
-        }
-
-        const result = await databasePool.query(
-          `SELECT id, full_name AS name, email, password_hash, created_at 
-           FROM users WHERE LOWER(email) = $1 LIMIT 1`,
-          [normalizedEmail]
-        );
-
-        if (result.rows.length === 0) {
-          return sendJson(res, 401, { error: "Invalid email or password." });
-        }
-
-        const user = result.rows[0];
-
-        if (user.password_hash !== String(password)) {
-          return sendJson(res, 401, { error: "Invalid email or password." });
-        }
-
-        return sendJson(res, 200, {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: "user", // Default fallback since role is not in the DB table
-          createdAt: user.created_at,
-        });
+      if (req.method === "GET" && req.url === "/api/db/lost-items") {
+        if (!databaseConfigured()) return sendJson(res, 503, { error: "DATABASE_URL is not configured." });
+        return sendJson(res, 200, { items: await listLostItems() });
       }
 
-    // =====================================================
-      // POST A NEW FOUND ITEM
-      // =====================================================
-
-      if (
-        req.method === "POST" &&
-        req.url === "/api/found-items"
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const body = await readJson(req);
-        const {
-          title,
-          description = "",
-          category,
-          location,
-          dateFound,
-          imageDataUrl = "",
-          status: itemStatus,
-          dropoffReference,
-        } = body;
-
-        if (!title?.trim() || !category?.trim() || !location?.trim() || !dateFound) {
-          return sendJson(res, 400, { error: "Title, category, location, and dateFound are required." });
-        }
-
-        const result = await databasePool.query(
-          `INSERT INTO found_items (title, description, category, location, date_found, status, dropoff_reference, image_data_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING id, title, description, category, location, date_found AS "dateFound", status, dropoff_reference AS "dropoffReference", image_data_url AS "imageDataUrl", created_at AS "createdAt"`,
-          [title.trim(), String(description).trim(), category.trim(), location.trim(), dateFound, itemStatus || "Awaiting Drop-off", dropoffReference || null, imageDataUrl]
-        );
-
-        invalidateStatsCache();
-        return sendJson(res, 201, result.rows[0]);
+      if (req.method === "POST" && req.url === "/api/db/lost-items") {
+        if (!databaseConfigured()) return sendJson(res, 503, { error: "DATABASE_URL is not configured." });
+        const { item } = await readJson(req);
+        if (!item || typeof item !== "object") return sendJson(res, 400, { error: "A lost item object is required." });
+        return sendJson(res, 200, { item: await upsertLostItem(item) });
       }
 
-      // =====================================================
-      // GET ALL FOUND ITEMS (DATABASE)
-      // =====================================================
-
-      if (
-        req.method === "GET" &&
-        (req.url === "/api/found-items" || req.url === "/api/found-items?summary=true")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const columns = req.url === "/api/found-items?summary=true"
-          ? `id, title, description, category, location, date_found AS "dateFound",
-             status, dropoff_reference AS "dropoffReference",
-             (image_data_url IS NOT NULL AND image_data_url <> '') AS "hasImage",
-             created_at AS "createdAt"`
-          : `id, title, description, category, location, date_found AS "dateFound",
-             status, dropoff_reference AS "dropoffReference",
-             image_data_url AS "imageDataUrl", created_at AS "createdAt"`;
-        const result = await databasePool.query(
-          `SELECT ${columns} FROM found_items ORDER BY created_at DESC`
-        );
-
-        return sendJson(res, 200, result.rows);
+      if (req.method === "GET" && req.url === "/api/db/found-items") {
+        if (!databaseConfigured()) return sendJson(res, 503, { error: "DATABASE_URL is not configured." });
+        return sendJson(res, 200, { items: await listFoundItems() });
       }
 
-      if (
-        req.method === "GET" &&
-        req.url.startsWith("/api/found-items/") &&
-        req.url.endsWith("/image")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const id = req.url.split("/")[3];
-        const result = await databasePool.query(
-          "SELECT image_data_url FROM found_items WHERE id = $1",
-          [id]
-        );
-        if (!result.rowCount) {
-          return sendJson(res, 404, { error: "Found item not found." });
-        }
-        return sendStoredImage(res, result.rows[0].image_data_url);
-      }
-      // =====================================================
-      // DASHBOARD COUNTS (DATABASE)
-      // =====================================================
-
-      if (req.method === "GET" && req.url === "/api/stats") {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        return sendJson(res, 200, await getDashboardStats());
+      if (req.method === "POST" && req.url === "/api/db/found-items") {
+        if (!databaseConfigured()) return sendJson(res, 503, { error: "DATABASE_URL is not configured." });
+        const { item } = await readJson(req);
+        if (!item || typeof item !== "object") return sendJson(res, 400, { error: "A found item object is required." });
+        return sendJson(res, 200, { item: await upsertFoundItem(item) });
       }
 
-      // =====================================================
-      // UPDATE FOUND ITEM STATUS (DATABASE)
-      // =====================================================
-
-      if (
-        req.method === "PATCH" &&
-        req.url.startsWith("/api/found-items/")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const id = req.url.split("/").pop();
-        const { status, receivedAt, receivedBy } = await readJson(req);
-
-        if (!id || !status?.trim()) {
-          return sendJson(res, 400, { error: "Item ID and status are required." });
-        }
-
-        const result = await databasePool.query(
-          `UPDATE found_items
-           SET status = $1
-           WHERE id = $2
-           RETURNING id, title, description, category, location,
-                     date_found AS "dateFound", status,
-                     dropoff_reference AS "dropoffReference",
-                     image_data_url AS "imageDataUrl", created_at AS "createdAt"`,
-          [status.trim(), id]
-        );
-
-        if (result.rowCount === 0) {
-          return sendJson(res, 404, { error: "Found item not found." });
-        }
-
-        invalidateStatsCache();
-        return sendJson(res, 200, {
-          ...result.rows[0],
-          receivedAt: receivedAt || null,
-          receivedBy: receivedBy || null,
-        });
+      if (req.method === "GET" && req.url === "/api/db/claims") {
+        if (!databaseConfigured()) return sendJson(res, 503, { error: "DATABASE_URL is not configured." });
+        return sendJson(res, 200, { claims: await listClaims() });
       }
 
-// =====================================================
-      // CLAIMS (DATABASE)
-      // =====================================================
-
-      if (req.method === "GET" && req.url === "/api/claims") {
-        if (!databasePool) return sendJson(res, 503, { error: "Database not configured." });
-        const result = await databasePool.query(
-          `SELECT c.id, c.claimant_id AS "claimantId", c.claimant_email AS "claimantEmail",
-                  c.lost_item_id AS "lostItemId", c.found_item_id AS "foundItemId",
-                  c.score, c.reason, c.verification_passed AS "verificationPassed",
-                  c.status, c.created_at AS "createdAt"
-           FROM claims c ORDER BY c.created_at DESC`
-        );
-        return sendJson(res, 200, result.rows);
-      }
-
-      if (req.method === "POST" && req.url === "/api/claims") {
-        if (!databasePool) return sendJson(res, 503, { error: "Database not configured." });
-        const body = await readJson(req);
-        const { claimantId, claimantEmail, lostItemId, foundItemId, score = 0, reason = "", verificationPassed = true, correctAnswers = 0, totalQuestions = 0 } = body;
-
-        const result = await databasePool.query(
-          `INSERT INTO claims (claimant_id, claimant_email, lost_item_id, found_item_id, score, reason, verification_passed, correct_answers, total_questions, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending Admin Review')
-           RETURNING id, status, created_at AS "createdAt"`,
-          [claimantId || null, claimantEmail || null, lostItemId, foundItemId, score, reason, verificationPassed, correctAnswers, totalQuestions]
-        );
-        invalidateStatsCache();
-        return sendJson(res, 201, result.rows[0]);
-      }
-      // =====================================================
-      // POST A NEW LOST ITEM (DATABASE)
-      // =====================================================
-
-      if (
-        req.method === "POST" &&
-        req.url === "/api/lost-items"
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const body = await readJson(req);
-        const {
-          title,
-          description = "",
-          category,
-          location,
-          dateLost,
-          date_found,
-          imageDataUrl = "",
-          status: itemStatus,
-          reporterEmail,
-          userId,
-        } = body;
-
-        const resolvedDateLost = dateLost || date_found;
-
-        if (!title?.trim() || !category?.trim() || !location?.trim() || !resolvedDateLost) {
-          return sendJson(res, 400, { error: "Title, category, location, and dateLost are required." });
-        }
-
-        const result = await databasePool.query(
-          `INSERT INTO lost_items (user_id, title, description, category, location, date_lost, status, image_data_url, reporter_email)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-           RETURNING id, user_id, title, description, category, location, date_lost, status, image_data_url, created_at`,
-          [
-            userId || null,
-            title.trim(),
-            String(description).trim(),
-            category.trim(),
-            location.trim(),
-            resolvedDateLost,
-            itemStatus || "Lost",
-            imageDataUrl,
-            reporterEmail || null
-          ]
-        );
-
-        const saved = result.rows[0];
-        invalidateStatsCache();
-        return sendJson(res, 201, {
-          id: saved.id,
-          userId: saved.user_id,
-          title: saved.title,
-          description: saved.description,
-          category: saved.category,
-          location: saved.location,
-          dateLost: saved.date_lost,
-          imageDataUrl: saved.image_data_url || "",
-          status: saved.status,
-          createdAt: saved.created_at,
-        });
-      }
-
-      // =====================================================
-      // GET ALL LOST ITEMS (DATABASE)
-      // =====================================================
-
-      if (
-        req.method === "GET" &&
-        (req.url === "/api/lost-items" || req.url === "/api/lost-items?summary=true")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const columns = req.url === "/api/lost-items?summary=true"
-          ? `id, user_id, title, description, category, location, date_lost, status,
-             (image_data_url IS NOT NULL AND image_data_url <> '') AS "hasImage",
-             created_at, reporter_email`
-          : "id, user_id, title, description, category, location, date_lost, status, image_data_url, created_at, reporter_email";
-        const result = await databasePool.query(
-          `SELECT ${columns} FROM lost_items ORDER BY created_at DESC`
-        );
-        
-        return sendJson(res, 200, result.rows);
-      }
-
-      if (
-        req.method === "GET" &&
-        req.url.startsWith("/api/lost-items/") &&
-        req.url.endsWith("/image")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const id = req.url.split("/")[3];
-        const result = await databasePool.query(
-          "SELECT image_data_url FROM lost_items WHERE id = $1",
-          [id]
-        );
-        if (!result.rowCount) {
-          return sendJson(res, 404, { error: "Lost item not found." });
-        }
-        return sendStoredImage(res, result.rows[0].image_data_url);
-      }
-
-      if (
-        req.method === "GET" &&
-        req.url.startsWith("/api/found-items/")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const id = req.url.split("/")[3];
-        const result = await databasePool.query(
-          `SELECT id, title, description, category, location,
-                  date_found AS "dateFound", status,
-                  dropoff_reference AS "dropoffReference",
-                  image_data_url AS "imageDataUrl",
-                  created_at AS "createdAt"
-           FROM found_items WHERE id = $1`,
-          [id]
-        );
-
-        if (!result.rowCount) {
-          return sendJson(res, 404, { error: "Found item not found." });
-        }
-
-        return sendJson(res, 200, result.rows[0]);
-      }
-
-      // =====================================================
-      // DELETE LOST ITEM (DATABASE)
-      // =====================================================
-
-      if (
-        req.method === "DELETE" &&
-        req.url.startsWith("/api/lost-items/")
-      ) {
-        if (!databasePool) {
-          return sendJson(res, 503, { error: "Database not configured." });
-        }
-
-        const id = req.url.split("/").pop();
-
-        if (!id) {
-          return sendJson(res, 400, { error: "Item ID is required." });
-        }
-
-        const result = await databasePool.query(
-          `DELETE FROM lost_items WHERE id = $1 RETURNING id`,
-          [id]
-        );
-
-        if (result.rowCount === 0) {
-          return sendJson(res, 404, { error: "Item not found or already deleted." });
-        }
-
-        invalidateStatsCache();
-        return sendJson(res, 200, { message: "Item deleted successfully." });
+      if (req.method === "POST" && req.url === "/api/db/claims") {
+        if (!databaseConfigured()) return sendJson(res, 503, { error: "DATABASE_URL is not configured." });
+        const { claim } = await readJson(req);
+        if (!claim || typeof claim !== "object") return sendJson(res, 400, { error: "A claim object is required." });
+        return sendJson(res, 200, { claim: await upsertClaim(claim) });
       }
 
       // =====================================================
@@ -1335,6 +904,222 @@ const server = http.createServer(
       }
 
       // =====================================================
+      // AI OWNERSHIP QUESTION GENERATION
+      // =====================================================
+      if (req.method === "POST" && req.url === "/api/ai/generate-verification-questions") {
+        const { item = {}, analysis = null } = await readJson(req);
+        const usefulText = [item.title, item.description, item.category, analysis?.object, analysis?.primaryColour, analysis?.brand, analysis?.material, analysis?.visibleText, ...(analysis?.distinctiveFeatures || [])].filter(Boolean).join(" ").trim();
+        if (usefulText.length < 12) return sendJson(res, 400, { error: "Add a useful item title and description before generating item questions." });
+
+        const prompt = `Create exactly 3 item-identification questions for this lost-item report. Return ONLY a JSON array of exactly 3 strings.
+
+These questions are answered privately by the person reporting the item lost and are kept as supporting evidence. Focus on physical details a genuine owner should know well, but do not reveal the expected answer in the question.
+
+Use three DIFFERENT evidence types where possible:
+- location and shape of a scratch, dent, crack, stain, repair or wear pattern
+- a case, strap, accessory, attachment, sticker, engraving, customisation or usual contents
+- a distinctive physical configuration, hidden mark, placement of a logo, button, pocket, clasp, pattern or other identifying feature
+
+Avoid generic questions whose answer is simply the category, basic colour or obvious title. Never ask for passwords, PINs, unlock codes, bank/payment details, full government ID numbers, authentication codes or biometrics. Keep each question short and natural.
+
+Lost report: ${JSON.stringify(item)}
+Photo analysis: ${JSON.stringify(analysis || {})}`;
+
+        const text = await callOpenAI(prompt, "Generate safe, item-specific physical verification questions. Return only valid JSON.", 700);
+        let questions = [];
+        try { questions = sanitiseVerificationQuestions(JSON.parse(cleanJson(text))); } catch { questions = []; }
+        if (questions.length !== 3) return sendJson(res, 502, { error: "AI could not generate three safe item questions. Add more distinctive item details and try again." });
+        return sendJson(res, 200, { questions });
+      }
+
+      // =====================================================
+      // PRIVATE OWNER-KNOWLEDGE QUESTIONS FOR LOST REPORTS
+      // Stored separately from the physical item questions.
+      // =====================================================
+      if (req.method === "POST" && req.url === "/api/ai/generate-owner-questions") {
+        const { item = {}, analysis = null } = await readJson(req);
+        if (!String(item.title || "").trim() || !String(item.description || "").trim()) {
+          return sendJson(res, 400, { error: "Add the item title and description first." });
+        }
+
+        const prompt = `Create exactly 3 PRIVATE OWNER-KNOWLEDGE questions for a lost-item report. Return ONLY a JSON array of exactly 3 strings.
+
+These are a separate section from physical item-identification questions. Ask things that a genuine owner is likely to know from owning or using the item, and that are not normally obvious to a stranger simply looking at it. The reporter's answers will be stored privately for later admin/ownership review.
+
+Prefer three DIFFERENT owner-only evidence types:
+- where, when or from whom the item was bought, received or gifted (approximate answers are acceptable)
+- a repair, replacement, modification or hidden/inside mark known to the owner
+- a usual accessory, contents, case, attachment, nickname, personal setup or non-secret usage detail
+- a specific incident/history detail involving the item that can later be compared with the owner's saved answer
+
+Do NOT ask for passwords, PINs, unlock patterns, account names, banking information, authentication codes, full government ID numbers, full serial numbers used as security credentials, or biometrics. Do not ask a question whose answer is already stated directly in the title or basic category. Keep each question concise and non-leading.
+
+Lost report: ${JSON.stringify(item)}
+Photo analysis: ${JSON.stringify(analysis || {})}`;
+
+        let questions = [];
+        try {
+          const text = await callOpenAI(prompt, "Generate three safe private owner-knowledge questions for lost-property verification. Return only valid JSON.", 700);
+          questions = sanitiseVerificationQuestions(JSON.parse(cleanJson(text)));
+        } catch (error) {
+          console.warn("AI private owner-question generation unavailable; using safe fallback questions:", error.message);
+        }
+
+        if (questions.length !== 3) {
+          questions = [
+            "Where or from whom did you buy, receive or get this item, approximately?",
+            "Describe any repair, modification or hidden mark on the item that you know about.",
+            "What accessory, case, attachment or personal setup do you normally use with this item?",
+          ];
+        }
+
+        return sendJson(res, 200, { questions });
+      }
+
+      // =====================================================
+      // CLAIM-SPECIFIC OWNERSHIP QUESTIONS
+      // Questions are generated from the protected found-item record,
+      // but expected answers are never sent to the browser.
+      // =====================================================
+      if (req.method === "POST" && req.url === "/api/ai/generate-claim-verification") {
+        const { foundItem = {}, searchItem = {} } = await readJson(req);
+        if (!foundItem?.id) return sendJson(res, 400, { error: "A matched found item is required." });
+
+        const prompt = `Create exactly 3 ownership-verification questions for a person claiming this found item.
+Return ONLY a JSON array of exactly 3 question strings.
+
+The questions must test details a genuine owner is likely to know WITHOUT revealing the answer.
+Prioritise:
+- scratches, dents, wear, damage, stains or condition
+- accessories, case, strap, contents, customisation or attachments
+- logos, markings, engraving, stickers or distinctive details
+- where the owner remembers buying, using or last having the item ONLY when that can be meaningfully checked
+
+Rules:
+- Do not state any protected found-item detail in the question itself.
+- Do not ask leading multiple-choice questions.
+- Never ask for passwords, PINs, unlock codes, OTPs, banking details, full ID numbers or biometrics.
+- Keep each question short, natural and easy to answer.
+
+User search (may be incomplete): ${JSON.stringify(searchItem)}
+Protected found record: ${JSON.stringify(foundItem)}`;
+
+        let questions = [];
+        try {
+          const text = await callOpenAI(prompt, "Generate secure owner-only lost-property verification questions. Return only valid JSON.", 700);
+          questions = sanitiseVerificationQuestions(JSON.parse(cleanJson(text)));
+        } catch (error) {
+          console.warn("AI claim-question generation unavailable; using safe fallback questions:", error.message);
+        }
+
+        if (questions.length !== 3) {
+          questions = [
+            "Describe any scratches, damage, wear or marks that should be on your item.",
+            "Describe any case, accessory, attachment, sticker or customisation that belongs with your item.",
+            "What distinctive logo, text, engraving, pattern or other detail would you expect to see on your item?",
+          ];
+        }
+        return sendJson(res, 200, { questions });
+      }
+
+      // =====================================================
+      // CLAIM ANSWER VERIFICATION
+      // Expected evidence stays on the server; only pass/fail and
+      // per-question feedback are returned.
+      // =====================================================
+      if (req.method === "POST" && req.url === "/api/ai/verify-claim-answers") {
+        const { foundItem = {}, searchItem = {}, questions = [], answers = [], privateOwnerBaseline = [] } = await readJson(req);
+        if (!foundItem?.id || !Array.isArray(questions) || !Array.isArray(answers) || questions.length !== answers.length || questions.length < 1) {
+          return sendJson(res, 400, { error: "Found item, questions and answers are required." });
+        }
+        if (answers.some((answer) => !String(answer || "").trim())) {
+          return sendJson(res, 400, { error: "Please answer every ownership question." });
+        }
+
+        try {
+          const prompt = `Evaluate ownership-verification answers against a protected found-item record.
+Return ONLY valid JSON in this shape:
+{
+  "correctAnswers": 0,
+  "totalQuestions": 3,
+  "requiredCorrect": 2,
+  "passed": false,
+  "feedback": ["brief neutral feedback for answer 1", "brief neutral feedback for answer 2", "brief neutral feedback for answer 3"]
+}
+
+Rules:
+- Be strict enough to reduce false claims but allow sensible wording differences.
+- A correct answer must be genuinely consistent with evidence in the protected found record.
+- Do NOT reveal the expected answer, exact location/date, hidden text, serial numbers or distinctive details in feedback.
+- Feedback may only say things like "consistent with the record", "not enough detail", or "not consistent with the record".
+- Require at least 2 of 3 answers to be correct when there are 3 questions.
+- Never use passwords, PINs, financial data, authentication codes or biometric data.
+
+User search: ${JSON.stringify(searchItem)}
+Protected found record: ${JSON.stringify(foundItem)}
+Original private owner evidence from the lost report, if available: ${JSON.stringify(privateOwnerBaseline)}
+Current verification questions and claimant answers: ${JSON.stringify(questions.map((q, i) => ({ question: q, answer: answers[i] })))}
+
+Important comparison rule:
+- If original private owner evidence is supplied, compare each current answer primarily against the corresponding original private owner answer from the lost report. Allow normal wording differences, abbreviations and small memory variations.
+- Use the protected found record only as supporting evidence.
+- Never reveal the original/reference answer in feedback.
+`;
+          const text = await callOpenAI(prompt, "Verify lost-property ownership answers conservatively. Return only valid JSON.", 900);
+          const parsed = JSON.parse(cleanJson(text));
+          const total = questions.length;
+          const required = total >= 3 ? 2 : total;
+          const correct = Math.max(0, Math.min(total, Number(parsed.correctAnswers) || 0));
+          return sendJson(res, 200, {
+            correctAnswers: correct,
+            totalQuestions: total,
+            requiredCorrect: required,
+            passed: correct >= required,
+            feedback: Array.isArray(parsed.feedback) ? parsed.feedback.slice(0, total).map((x) => String(x).slice(0, 120)) : [],
+            method: "openai",
+          });
+        } catch (error) {
+          console.warn("AI ownership verification unavailable; using conservative local fallback:", error.message);
+          const foundEvidence = [
+            foundItem.title, foundItem.description, foundItem.category, foundItem.location,
+            foundItem.aiAnalysis?.brand, foundItem.aiAnalysis?.condition, foundItem.aiAnalysis?.visibleText,
+            ...(foundItem.aiAnalysis?.distinctiveFeatures || []), ...(foundItem.aiAnalysis?.secondaryColours || [])
+          ].filter(Boolean).join(" ").toLowerCase();
+          const stop = new Set(["the","and","with","this","that","item","have","has","was","are","for","from","your","mine","its","there","about","very","some"]);
+          function tokens(value) {
+            return [...new Set((String(value || "").toLowerCase().match(/[a-z0-9]+/g) || []).filter((t) => t.length >= 3 && !stop.has(t)))];
+          }
+          function compareToReference(answer, reference) {
+            const a = tokens(answer);
+            const r = tokens(reference);
+            if (!a.length || !r.length) return false;
+            const shared = a.filter((t) => r.includes(t)).length;
+            return shared >= Math.max(1, Math.ceil(Math.min(a.length, r.length) * 0.45));
+          }
+          function compareToFound(answer) {
+            const useful = tokens(answer);
+            if (!useful.length) return false;
+            return useful.filter((t) => foundEvidence.includes(t)).length >= Math.min(2, useful.length);
+          }
+          const hasBaseline = Array.isArray(privateOwnerBaseline) && privateOwnerBaseline.length === answers.length;
+          const checks = answers.map((answer, index) => hasBaseline
+            ? compareToReference(answer, privateOwnerBaseline[index]?.answer)
+            : compareToFound(answer));
+          const correct = checks.filter(Boolean).length;
+          const total = questions.length;
+          const required = total >= 3 ? 2 : total;
+          return sendJson(res, 200, {
+            correctAnswers: correct,
+            totalQuestions: total,
+            requiredCorrect: required,
+            passed: correct >= required,
+            feedback: checks.map((ok) => ok ? "Answer is consistent with the protected ownership evidence." : "Answer is not sufficiently consistent with the protected ownership evidence."),
+            method: "local",
+          });
+        }
+      }
+
+      // =====================================================
       // AI IMAGE ANALYSIS
       // =====================================================
 
@@ -1393,40 +1178,27 @@ User details:
 ${JSON.stringify(item)}
 `;
 
-        let text;
-        let usedFallback = false;
-
-        try {
-          text = await callOpenAI(
-              [
-                {
-                  role: "user",
-                  content: [
-                    {
-                      type: "input_text",
-                      text: prompt,
-                    },
-                    {
-                      type: "input_image",
-                      image_url:
-                        imageDataUrl,
-                    },
-                  ],
-                },
-              ],
-              "You analyse lost-property photographs accurately and conservatively. Return only valid JSON.",
-              1200
-            );
-        } catch (openAIError) {
-          usedFallback = true;
-          console.error("OpenAI image analysis unavailable:", openAIError.message);
-          return sendJson(res, 200, {
-            analysis: localAnalyseItem(item, reportType),
-            analysisMethod: "local",
-            fallback: true,
-            message: "OpenAI image analysis is unavailable. The report details were used instead; replace OPENAI_API_KEY to enable photo analysis.",
-          });
-        }
+        const text =
+          await callOpenAI(
+            [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "input_text",
+                    text: prompt,
+                  },
+                  {
+                    type: "input_image",
+                    image_url:
+                      imageDataUrl,
+                  },
+                ],
+              },
+            ],
+            "You analyse lost-property photographs accurately and conservatively. Return only valid JSON.",
+            1200
+          );
 
         let analysis;
 
@@ -1453,19 +1225,13 @@ ${JSON.stringify(item)}
         }
 
         if (reportType === "lost") {
-          analysis.privateVerificationQuestions =
-            simpleVerificationQuestions(
-              analysis
-            );
+          analysis.privateVerificationQuestions = sanitiseVerificationQuestions(analysis.privateVerificationQuestions);
         } else {
-          analysis.privateVerificationQuestions =
-            [];
+          analysis.privateVerificationQuestions = [];
         }
 
         return sendJson(res, 200, {
           analysis,
-          analysisMethod: usedFallback ? "local" : "openai",
-          fallback: usedFallback,
         });
       }
 
@@ -1477,10 +1243,7 @@ ${JSON.stringify(item)}
         req.method === "POST" &&
         req.url === "/api/ai/match-items"
       ) {
-        const {
-          lostItem,
-          foundItems = [],
-        } = await readJson(req);
+        const { lostItem, foundItems = [], searchQuery = "" } = await readJson(req);
 
         if (
           !lostItem ||
@@ -1517,12 +1280,17 @@ ${JSON.stringify(item)}
                 item.aiAnalysis,
             }));
 
+        // ---------------------------------------------------
+        // Try OpenAI first
+        // ---------------------------------------------------
+
         try {
           const prompt = `
 Compare one lost item against found-item candidates.
 
-Consider:
-- object type
+Consider, in this order:
+- title/object-type alignment (this is mandatory for a strong match)
+- description meaning and distinctive details
 - category
 - colours
 - brand
@@ -1548,14 +1316,18 @@ Return ONLY valid JSON as an array sorted best-first:
 
 Rules:
 - Score from 0 to 100.
+- If the item title/object type conflicts, cap the score below 60 even when generic words overlap.
+- A 60+ score requires both the title/object type AND the description to be reasonably consistent.
 - Include every candidate with score 20 or higher.
 - High confidence requires several specific agreements.
 - Clearly state important differences.
 - This is only a potential match.
 - Ownership still requires private-question verification and admin approval.
+- matchingFeatures and differences may describe general comparison attributes such as item type, colour, brand family, material and condition, but must not reveal exact location/date, serial numbers, unique codes, full visible text, or hidden owner-verification details.
+- reason must be a short professional explanation of why the title and description appear similar.
 
 Lost item:
-${JSON.stringify(lostItem)}
+${JSON.stringify({ ...lostItem, manualSearchQuery: String(searchQuery || "").trim() })}
 
 Found candidates:
 ${JSON.stringify(candidates)}
@@ -1585,17 +1357,33 @@ ${JSON.stringify(candidates)}
             matches = [];
           }
 
-          return sendJson(res, 200, {
-            matches,
-            matchingMethod: "openai",
-            fallback: false,
-          });
+          const protectedMatches = matches.map((m) => ({
+            candidateId: m.candidateId,
+            score: Number(m.score) || 0,
+            confidence: m.confidence || "low",
+            safeSummary: String(m.reason || "The title and description are consistent with a protected office record.").slice(0, 260),
+            similarities: Array.isArray(m.matchingFeatures) ? m.matchingFeatures.slice(0, 5).map((x) => String(x).replace(/location|date|serial|code/gi, "protected detail").slice(0, 140)) : [],
+            differences: Array.isArray(m.differences) ? m.differences.slice(0, 4).map((x) => String(x).replace(/location|date|serial|code/gi, "protected detail").slice(0, 140)) : [],
+          }));
+          return sendJson(res, 200, { matches: protectedMatches, matchingMethod: "openai", fallback: false });
         } catch (openAIError) {
-          const matches =
-            localMatchItems(
-              lostItem,
-              foundItems
-            );
+          // -------------------------------------------------
+          // OpenAI failed — use local matcher
+          // -------------------------------------------------
+
+          console.warn(
+            "OpenAI matching unavailable. Using local matching fallback:",
+            openAIError.message
+          );
+
+          const matches = localMatchItems({ ...lostItem, manualSearchQuery: String(searchQuery || "").trim() }, foundItems).map((m) => ({
+            candidateId: m.candidateId,
+            score: Number(m.score) || 0,
+            confidence: m.confidence || "low",
+            safeSummary: "The title and description share multiple characteristics with a protected office record.",
+            similarities: Array.isArray(m.matchingFeatures) ? m.matchingFeatures.slice(0, 5).map((x) => String(x).slice(0, 140)) : [],
+            differences: Array.isArray(m.differences) ? m.differences.slice(0, 4).map((x) => String(x).slice(0, 140)) : [],
+          }));
 
           return sendJson(res, 200, {
             matches,
@@ -1603,6 +1391,87 @@ ${JSON.stringify(candidates)}
             fallback: true,
             message:
               "OpenAI matching was unavailable, so local rule-based matching was used.",
+          });
+        }
+      }
+
+      // =====================================================
+      // VERIFIED MATCH EXPLANATION
+      // =====================================================
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/ai/explain-verified-match"
+      ) {
+        const { lostItem, foundItem } = await readJson(req);
+
+        if (!lostItem || !foundItem) {
+          return sendJson(res, 400, {
+            error: "lostItem and foundItem are required.",
+          });
+        }
+
+        try {
+          const prompt = `
+The user has already passed ownership verification for a potential lost-and-found match.
+Explain the comparison clearly and professionally.
+
+Return ONLY valid JSON in this structure:
+{
+  "summary": "2-3 sentence explanation",
+  "similarities": ["specific similarity", "specific similarity"],
+  "differences": ["specific difference", "specific difference"]
+}
+
+Rules:
+- Be factual and concise.
+- Compare object type, colour, brand, material, condition, visible features and other available details.
+- Do not claim final ownership; admin review is still required.
+- Do not include passwords, financial information or unrelated personal data.
+- If there are no meaningful differences, return an empty differences array.
+
+Lost report:
+${JSON.stringify(lostItem)}
+
+Verified potential found item:
+${JSON.stringify(foundItem)}
+`;
+
+          const text = await callOpenAI(
+            prompt,
+            "You explain verified lost-and-found comparisons accurately and concisely. Return only valid JSON.",
+            900
+          );
+
+          let explanation;
+          try {
+            explanation = JSON.parse(cleanJson(text));
+          } catch {
+            explanation = null;
+          }
+
+          if (!explanation || typeof explanation !== "object") {
+            throw new Error("Could not parse AI explanation.");
+          }
+
+          return sendJson(res, 200, {
+            summary: String(explanation.summary || "This item has several characteristics in common with your lost report. Final ownership still requires administrator review."),
+            similarities: Array.isArray(explanation.similarities) ? explanation.similarities.slice(0, 6) : [],
+            differences: Array.isArray(explanation.differences) ? explanation.differences.slice(0, 6) : [],
+            method: "openai",
+          });
+        } catch (openAIError) {
+          console.warn(
+            "OpenAI verified explanation unavailable. Using local comparison:",
+            openAIError.message
+          );
+
+          const local = similarityScore(lostItem, foundItem);
+          return sendJson(res, 200, {
+            summary: local.reason || "This item has several characteristics in common with your lost report. Final ownership still requires administrator review.",
+            similarities: Array.isArray(local.matchingFeatures) ? local.matchingFeatures.slice(0, 6) : [],
+            differences: Array.isArray(local.differences) ? local.differences.slice(0, 6) : [],
+            method: "local",
           });
         }
       }
@@ -1954,16 +1823,8 @@ server.on("error", (error) => {
 // =========================================================
 
 server.listen(PORT, () => {
-  getDashboardStats().catch((error) => {
-    console.error("Dashboard stats warm-up failed:", error.message);
-  });
-
   console.log(
     `AI backend running at http://localhost:${PORT}`
-  );
-
-  console.log(
-    `Database connected: YES (Neon PostgreSQL)`
   );
 
   console.log(

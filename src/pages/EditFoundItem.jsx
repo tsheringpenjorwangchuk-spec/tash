@@ -4,12 +4,15 @@ import {
   FaArrowLeft,
   FaBoxOpen,
   FaCalendarAlt,
+  FaCheckCircle,
   FaFileAlt,
+  FaImage,
   FaMapMarkerAlt,
   FaSave,
+  FaShieldAlt,
   FaTag,
-  FaImage,
   FaTimes,
+  FaUpload,
 } from "react-icons/fa";
 
 import "./EditFoundItem.css";
@@ -30,59 +33,32 @@ function EditFoundItem() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-// Fetch existing item from Database
   useEffect(() => {
-    async function loadItem() {
-      try {
-        const res = await fetch(`http://localhost:3001/api/found-items/${id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setItem({
-            title: data.title || "",
-            description: data.description || "",
-            category: data.category || "",
-            location: data.location || "",
-            dateFound: data.dateFound ? data.dateFound.split("T")[0] : "",
-            imageDataUrl: data.imageDataUrl || "",
-          });
-        } else {
-          setError("Found item could not be found.");
-        }
-      } catch (err) {
-        setError("Error connecting to database.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadItem();
-  }, [id]);
+    const foundItems = JSON.parse(
+      localStorage.getItem("foundItems") || "[]"
+    );
 
-  // Submit updates to Database
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!item.title.trim() || !item.category || !item.location.trim() || !item.dateFound) {
-      setError("Please complete all required fields.");
+    const existingItem = foundItems.find(
+      (foundItem) => String(foundItem.id) === String(id)
+    );
+
+    if (!existingItem) {
+      setError("Found item could not be found.");
+      setLoading(false);
       return;
     }
 
-    try {
-      const response = await fetch(`http://localhost:3001/api/found-items/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
+    setItem({
+      title: existingItem.title || "",
+      description: existingItem.description || "",
+      category: existingItem.category || "",
+      location: existingItem.location || "",
+      dateFound: existingItem.dateFound || "",
+      imageDataUrl: existingItem.imageDataUrl || "",
+    });
 
-      if (response.ok) {
-        alert("Found item updated successfully in the database!");
-        navigate("/view-found-items");
-      } else {
-        const err = await response.json();
-        setError(err.error || "Failed to update item.");
-      }
-    } catch (err) {
-      setError("Network error when updating database.");
-    }
-  };
+    setLoading(false);
+  }, [id]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -133,14 +109,78 @@ function EditFoundItem() {
     }));
   };
 
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    if (
+      !item.title.trim() ||
+      !item.description.trim() ||
+      !item.category ||
+      !item.location.trim() ||
+      !item.dateFound
+    ) {
+      setError("Please complete all required fields.");
+      return;
+    }
+
+    const foundItems = JSON.parse(
+      localStorage.getItem("foundItems") || "[]"
+    );
+
+    const itemExists = foundItems.some(
+      (foundItem) => String(foundItem.id) === String(id)
+    );
+
+    if (!itemExists) {
+      setError("This found item no longer exists.");
+      return;
+    }
+
+    const updatedItems = foundItems.map((foundItem) => {
+      if (String(foundItem.id) !== String(id)) {
+        return foundItem;
+      }
+
+      return {
+        ...foundItem,
+        title: item.title.trim(),
+        description: item.description.trim(),
+        category: item.category,
+        location: item.location.trim(),
+        dateFound: item.dateFound,
+        imageDataUrl: item.imageDataUrl,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    localStorage.setItem(
+      "foundItems",
+      JSON.stringify(updatedItems)
+    );
+
+    alert("Found item updated successfully!");
+
+    navigate("/view-found-items");
+  };
+
   if (loading) {
     return (
       <main className="edit-found-page">
-        <div className="edit-found-card edit-loading-card">
-          <FaBoxOpen className="edit-loading-icon" />
-          <h1>Loading Found Item...</h1>
-          <p>Please wait while the report is loaded.</p>
-        </div>
+        <section className="edit-state-card">
+          <div className="edit-state-icon loading">
+            <FaBoxOpen />
+          </div>
+
+          <span className="edit-state-label">
+            FOUND ITEM
+          </span>
+
+          <h1>Loading report</h1>
+
+          <p>
+            Please wait while the found-item report is being loaded.
+          </p>
+        </section>
       </main>
     );
   }
@@ -148,306 +188,576 @@ function EditFoundItem() {
   if (error && !item.title) {
     return (
       <main className="edit-found-page">
-        <div className="edit-found-card error-card">
-          <FaBoxOpen className="error-icon" />
+        <section className="edit-state-card">
+          <div className="edit-state-icon">
+            <FaBoxOpen />
+          </div>
 
-          <p className="edit-found-eyebrow">
+          <span className="edit-state-label">
             LOST & FOUND
-          </p>
+          </span>
 
-          <h1>Found Item Not Found</h1>
+          <h1>Found item not found</h1>
 
-          <p className="error-message">
+          <p className="edit-state-message">
             {error}
           </p>
 
           <button
             type="button"
-            className="error-back-button"
+            className="edit-state-button"
             onClick={() => navigate("/view-found-items")}
           >
             <FaArrowLeft />
             Back to Found Items
           </button>
-        </div>
+        </section>
       </main>
     );
   }
 
   return (
     <main className="edit-found-page">
+      <section className="edit-found-workspace">
 
-      <div className="edit-found-card">
+        {/* =====================================================
+            TOP BAR
+            ===================================================== */}
 
-        {/* HEADER */}
-        <header className="edit-found-header">
-
-          <div className="edit-title-area">
-
-            <p className="edit-found-eyebrow">
-              LOST & FOUND
-            </p>
-
-            <h1>
-              <FaBoxOpen />
-              Edit Found Item
-            </h1>
-
-            <p className="edit-subtitle">
-              Update the details of your found-item report.
-            </p>
-
-          </div>
-
+        <header className="edit-topbar">
           <button
             type="button"
             className="edit-back-button"
             onClick={() => navigate("/view-found-items")}
           >
             <FaArrowLeft />
-            Back to Found Items
+            <span>Found Items</span>
           </button>
 
+          <div className="edit-topbar-title">
+            <span>REPORT EDITOR</span>
+            <strong>Edit found item</strong>
+          </div>
+
+          <div className="edit-topbar-status">
+            <span className="status-dot" />
+            Editing report
+          </div>
         </header>
 
-        {/* ERROR */}
+
+        {/* =====================================================
+            PAGE INTRO
+            ===================================================== */}
+
+        <section className="edit-page-intro">
+          <div className="edit-intro-copy">
+            <div className="edit-eyebrow">
+              <span>
+                <FaBoxOpen />
+              </span>
+
+              FOUND ITEM MANAGEMENT
+            </div>
+
+            <h1>Edit found item</h1>
+
+            <p>
+              Keep this report accurate and useful by updating the
+              item details, discovery information and image.
+            </p>
+          </div>
+
+          <div className="edit-intro-meta">
+            <div>
+              <FaCheckCircle />
+
+              <span>
+                <strong>Existing report</strong>
+                Changes will update this item
+              </span>
+            </div>
+          </div>
+        </section>
+
+
+        {/* =====================================================
+            ERROR
+            ===================================================== */}
+
         {error && (
           <div className="edit-found-error">
-            {error}
+            <FaShieldAlt />
+            <span>{error}</span>
           </div>
         )}
 
-        {/* FORM */}
-        <form onSubmit={handleSubmit}>
 
-          {/* ITEM TITLE */}
-          <div className="edit-field">
+        {/* =====================================================
+            MAIN EDITOR
+            ===================================================== */}
 
-            <label htmlFor="title">
-              Item Title
-            </label>
+        <div className="edit-editor-layout">
 
-            <div className="edit-input-group">
+          {/* ===================================================
+              FORM PANEL
+              =================================================== */}
 
-              <FaTag className="edit-input-icon" />
+          <form
+            className="edit-form-panel"
+            onSubmit={handleSubmit}
+          >
 
-              <input
-                id="title"
-                type="text"
-                name="title"
-                placeholder="e.g. Blue Umbrella"
-                value={item.title}
-                onChange={handleChange}
-              />
+            {/* =================================================
+                SECTION 01
+                ================================================= */}
 
-            </div>
+            <section className="edit-section">
 
-          </div>
+              <div className="edit-section-header">
+                <div className="edit-section-index">
+                  01
+                </div>
 
-          {/* DESCRIPTION */}
-          <div className="edit-field">
+                <div>
+                  <span>REPORT INFORMATION</span>
 
-            <label htmlFor="description">
-              Description
-            </label>
+                  <h2>Item details</h2>
 
-            <div className="edit-input-group textarea-group">
+                  <p>
+                    Describe the found item clearly so it can be
+                    identified accurately.
+                  </p>
+                </div>
+              </div>
 
-              <FaFileAlt className="edit-input-icon" />
 
-              <textarea
-                id="description"
-                name="description"
-                placeholder="Describe the item you found..."
-                value={item.description}
-                onChange={handleChange}
-              />
+              <div className="edit-field-grid two">
 
-            </div>
+                {/* ITEM TITLE */}
 
-          </div>
+                <div className="edit-field">
+                  <label htmlFor="title">
+                    Item title
+                  </label>
 
-          {/* CATEGORY */}
-          <div className="edit-field">
+                  <div className="edit-input">
+                    <span className="edit-input-icon">
+                      <FaTag />
+                    </span>
 
-            <label htmlFor="category">
-              Category
-            </label>
+                    <input
+                      id="title"
+                      type="text"
+                      name="title"
+                      placeholder="e.g. Blue Umbrella"
+                      value={item.title}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
 
-            <div className="edit-input-group select-group">
 
-              <select
-                id="category"
-                name="category"
-                value={item.category}
-                onChange={handleChange}
-              >
-                <option value="">
-                  Select Category
-                </option>
+                {/* CATEGORY */}
 
-                <option value="Electronics">
-                  Electronics
-                </option>
+                <div className="edit-field">
+                  <label htmlFor="category">
+                    Category
+                  </label>
 
-                <option value="Documents">
-                  Documents
-                </option>
+                  <div className="edit-input">
+                    <span className="edit-input-icon">
+                      <FaBoxOpen />
+                    </span>
 
-                <option value="Clothing">
-                  Clothing
-                </option>
+                    <select
+                      id="category"
+                      name="category"
+                      value={item.category}
+                      onChange={handleChange}
+                    >
+                      <option value="">
+                        Select Category
+                      </option>
 
-                <option value="Bags">
-                  Bags
-                </option>
+                      <option value="Electronics">
+                        Electronics
+                      </option>
 
-                <option value="Keys">
-                  Keys
-                </option>
+                      <option value="Documents">
+                        Documents
+                      </option>
 
-                <option value="Other">
-                  Other
-                </option>
+                      <option value="Clothing">
+                        Clothing
+                      </option>
 
-              </select>
+                      <option value="Bags">
+                        Bags
+                      </option>
 
-            </div>
+                      <option value="Keys">
+                        Keys
+                      </option>
 
-          </div>
-
-          {/* LOCATION + DATE */}
-          <div className="edit-two-column">
-
-            <div className="edit-field">
-
-              <label htmlFor="location">
-                Location Found
-              </label>
-
-              <div className="edit-input-group">
-
-                <FaMapMarkerAlt className="edit-input-icon" />
-
-                <input
-                  id="location"
-                  type="text"
-                  name="location"
-                  placeholder="e.g. Main Hall"
-                  value={item.location}
-                  onChange={handleChange}
-                />
+                      <option value="Other">
+                        Other
+                      </option>
+                    </select>
+                  </div>
+                </div>
 
               </div>
 
-            </div>
 
-            <div className="edit-field">
+              {/* DESCRIPTION */}
 
-              <label htmlFor="dateFound">
-                Date Found
-              </label>
-
-              <div className="edit-input-group">
-
-                <FaCalendarAlt className="edit-input-icon" />
-
-                <input
-                  id="dateFound"
-                  type="date"
-                  name="dateFound"
-                  value={item.dateFound}
-                  onChange={handleChange}
-                />
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* IMAGE */}
-          <div className="edit-image-section">
-
-            <div className="edit-image-heading">
-
-              <div>
-                <label>
-                  <FaImage />
-                  Item Image
+              <div className="edit-field">
+                <label htmlFor="description">
+                  Description
                 </label>
 
-                <p>
-                  Replace the existing image if required.
-                </p>
+                <div className="edit-input textarea">
+                  <span className="edit-input-icon textarea-icon">
+                    <FaFileAlt />
+                  </span>
+
+                  <textarea
+                    id="description"
+                    name="description"
+                    placeholder="Describe the item you found..."
+                    value={item.description}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <small>
+                  Include colour, brand, markings, condition or other
+                  identifying details.
+                </small>
               </div>
 
-            </div>
+            </section>
 
-            <div className="edit-file-upload">
 
-              <input
-                id="found-image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-              />
+            {/* =================================================
+                SECTION 02
+                ================================================= */}
 
-              <label htmlFor="found-image">
-                <FaImage />
-                Choose New Image
-              </label>
+            <section className="edit-section">
 
-            </div>
+              <div className="edit-section-header">
+                <div className="edit-section-index">
+                  02
+                </div>
 
-            {item.imageDataUrl && (
-              <div className="edit-image-preview">
+                <div>
+                  <span>DISCOVERY DETAILS</span>
 
-                <img
-                  src={item.imageDataUrl}
-                  alt="Found item preview"
+                  <h2>Where and when</h2>
+
+                  <p>
+                    Add the location and date where the item was found.
+                  </p>
+                </div>
+              </div>
+
+
+              <div className="edit-field-grid two">
+
+                {/* LOCATION */}
+
+                <div className="edit-field">
+                  <label htmlFor="location">
+                    Location found
+                  </label>
+
+                  <div className="edit-input">
+                    <span className="edit-input-icon">
+                      <FaMapMarkerAlt />
+                    </span>
+
+                    <input
+                      id="location"
+                      type="text"
+                      name="location"
+                      placeholder="e.g. Main Hall"
+                      value={item.location}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+
+                {/* DATE */}
+
+                <div className="edit-field">
+                  <label htmlFor="dateFound">
+                    Date found
+                  </label>
+
+                  <div className="edit-input">
+                    <span className="edit-input-icon">
+                      <FaCalendarAlt />
+                    </span>
+
+                    <input
+                      id="dateFound"
+                      type="date"
+                      name="dateFound"
+                      value={item.dateFound}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+            </section>
+
+
+            {/* =================================================
+                SECTION 03
+                ================================================= */}
+
+            <section className="edit-section">
+
+              <div className="edit-section-header">
+                <div className="edit-section-index">
+                  03
+                </div>
+
+                <div>
+                  <span>VISUAL INFORMATION</span>
+
+                  <h2>Item image</h2>
+
+                  <p>
+                    Replace the current image or remove it from the
+                    report.
+                  </p>
+                </div>
+              </div>
+
+
+              {/* UPLOAD */}
+
+              <div className="edit-upload-area">
+                <input
+                  id="found-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
                 />
 
-                <button
-                  type="button"
-                  className="remove-image-button"
-                  onClick={removeImage}
-                >
-                  <FaTimes />
-                  Remove Image
-                </button>
+                <label htmlFor="found-image">
+
+                  <div className="upload-icon">
+                    <FaUpload />
+                  </div>
+
+                  <strong>
+                    Upload a new image
+                  </strong>
+
+                  <span>
+                    Use a clear image that helps identify the item.
+                  </span>
+
+                  <small>
+                    Maximum file size: 5 MB
+                  </small>
+
+                  <em>
+                    Browse files
+                  </em>
+
+                </label>
+              </div>
+
+
+              {/* CURRENT IMAGE */}
+
+              {item.imageDataUrl && (
+                <div className="edit-image-card">
+
+                  <div className="image-card-header">
+
+                    <div>
+                      <span>CURRENT IMAGE</span>
+                      <strong>Report image</strong>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="remove-image-button"
+                      onClick={removeImage}
+                    >
+                      <FaTimes />
+                      Remove
+                    </button>
+
+                  </div>
+
+                  <div className="image-preview">
+                    <img
+                      src={item.imageDataUrl}
+                      alt="Found item preview"
+                    />
+                  </div>
+
+                </div>
+              )}
+
+            </section>
+
+
+            {/* =================================================
+                ACTIONS
+                ================================================= */}
+
+            <footer className="edit-actions">
+
+              <button
+                type="button"
+                className="cancel-edit-button"
+                onClick={() => navigate("/view-found-items")}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="edit-save-button"
+              >
+                <FaSave />
+                Save Changes
+              </button>
+
+            </footer>
+
+          </form>
+
+
+          {/* ===================================================
+              LIVE PREVIEW
+              =================================================== */}
+
+          <aside className="edit-preview-panel">
+
+            <div className="preview-panel-header">
+
+              <div>
+                <span>LIVE PREVIEW</span>
+                <h2>Found item</h2>
+              </div>
+
+              <div className="preview-status">
+                <span />
+                Draft
+              </div>
+
+            </div>
+
+
+            {/* PREVIEW IMAGE */}
+
+            <div className="preview-image">
+
+              {item.imageDataUrl ? (
+                <img
+                  src={item.imageDataUrl}
+                  alt="Found item"
+                />
+              ) : (
+                <div className="preview-empty">
+                  <FaImage />
+                  <span>No image</span>
+                </div>
+              )}
+
+            </div>
+
+
+            {/* PREVIEW CONTENT */}
+
+            <div className="preview-content">
+
+              <span className="preview-category">
+                {item.category || "CATEGORY"}
+              </span>
+
+              <h3>
+                {item.title || "Found item title"}
+              </h3>
+
+              <p>
+                {item.description ||
+                  "Your item description will appear here as you update the report."}
+              </p>
+
+
+              {/* INFO */}
+
+              <div className="preview-info-list">
+
+                <div>
+                  <span className="preview-info-icon">
+                    <FaMapMarkerAlt />
+                  </span>
+
+                  <span>
+                    <small>LOCATION</small>
+
+                    <strong>
+                      {item.location || "Not provided"}
+                    </strong>
+                  </span>
+                </div>
+
+
+                <div>
+                  <span className="preview-info-icon">
+                    <FaCalendarAlt />
+                  </span>
+
+                  <span>
+                    <small>DATE FOUND</small>
+
+                    <strong>
+                      {item.dateFound || "Not provided"}
+                    </strong>
+                  </span>
+                </div>
 
               </div>
-            )}
 
-          </div>
+            </div>
 
-          {/* ACTIONS */}
-          <div className="edit-form-actions">
 
-            <button
-              type="button"
-              className="cancel-edit-button"
-              onClick={() => navigate("/view-found-items")}
-            >
-              <FaArrowLeft />
-              Cancel
-            </button>
+            {/* PREVIEW NOTE */}
 
-            <button
-              type="submit"
-              className="edit-save-button"
-            >
-              <FaSave />
-              Save Changes
-            </button>
+            <div className="preview-note">
 
-          </div>
+              <FaShieldAlt />
 
-        </form>
+              <div>
+                <strong>
+                  Before you save
+                </strong>
 
-      </div>
+                <span>
+                  Check that the title, location and image accurately
+                  describe the found item.
+                </span>
+              </div>
 
+            </div>
+
+          </aside>
+
+        </div>
+      </section>
     </main>
   );
 }

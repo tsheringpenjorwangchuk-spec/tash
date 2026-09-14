@@ -1,35 +1,907 @@
-* {
+
+/* =========================================================
+   INF305 LOST & FOUND MANAGEMENT SYSTEM
+   PREMIUM GLOBAL DESIGN SYSTEM
+   Blue + Teal + White
+   ========================================================= */
+
+:root {
+
+  /* =======================================================
+     BRAND
+     ======================================================= */
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+
+  --primary-light: #60a5fa;
+  --primary-soft: rgba(37, 99, 235, 0.12);
+  --primary-glow: rgba(37, 99, 235, 0.22);
+
+  --teal: #14b8a6;
+  --teal-light: #2dd4bf;
+  --teal-soft: rgba(20, 184, 166, 0.12);
+  --teal-glow: rgba(20, 184, 166, 0.20);
+
+
+  /* =======================================================
+     BACKGROUND
+     ======================================================= */
+
+  --bg-main: #07111f;
+  --bg-secondary: #0b1728;
+  --bg-tertiary: #102238;
+
+
+  /* =======================================================
+     SURFACES
+     ======================================================= */
+
+  --surface:
+    rgba(16, 34, 56, 0.82);
+
+  --surface-solid:
+    #102238;
+
+  --surface-soft:
+    rgba(255, 255, 255, 0.035);
+
+  --surface-hover:
+    rgba(255, 255, 255, 0.06);
+
+
+  /* =======================================================
+     BORDERS
+     ======================================================= */
+
+  --border:
+    rgba(148, 163, 184, 0.14);
+
+  --border-hover:
+    rgba(148, 163, 184, 0.24);
+
+  --border-blue:
+    rgba(37, 99, 235, 0.28);
+
+  --border-teal:
+    rgba(20, 184, 166, 0.28);
+
+
+  /* =======================================================
+     TEXT
+     ======================================================= */
+
+  --text-primary:
+    #f8fafc;
+
+  --text-secondary:
+    #cbd5e1;
+
+  --text-muted:
+    #94a3b8;
+
+  --text-disabled:
+    #64748b;
+
+
+  /* =======================================================
+     STATUS
+     ======================================================= */
+
+  --success:
+    #22c55e;
+
+  --success-soft:
+    rgba(34, 197, 94, 0.10);
+
+  --warning:
+    #f59e0b;
+
+  --warning-soft:
+    rgba(245, 158, 11, 0.10);
+
+  --danger:
+    #ef4444;
+
+  --danger-soft:
+    rgba(239, 68, 68, 0.10);
+
+  --info:
+    #38bdf8;
+
+  --info-soft:
+    rgba(56, 189, 248, 0.10);
+
+
+  /* =======================================================
+     RADIUS
+     ======================================================= */
+
+  --radius-sm:
+    10px;
+
+  --radius-md:
+    14px;
+
+  --radius-lg:
+    20px;
+
+  --radius-xl:
+    26px;
+
+  --radius-pill:
+    999px;
+
+
+  /* =======================================================
+     SHADOWS
+     ======================================================= */
+
+  --shadow-sm:
+    0 4px 14px rgba(0, 0, 0, 0.18);
+
+  --shadow-md:
+    0 12px 35px rgba(0, 0, 0, 0.28);
+
+  --shadow-lg:
+    0 22px 60px rgba(0, 0, 0, 0.38);
+
+  --shadow-blue:
+    0 10px 35px rgba(37, 99, 235, 0.14);
+
+  --shadow-teal:
+    0 10px 35px rgba(20, 184, 166, 0.12);
+
+
+  /* =======================================================
+     MOTION
+     ======================================================= */
+
+  --transition-fast:
+    160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --transition:
+    220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html { color-scheme: light; }
+
+/* =========================================================
+   HTML
+   ========================================================= */
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+
+/* =========================================================
+   BODY
+   ========================================================= */
 
 body {
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
   min-height: 100vh;
-  color: #10213b;
+
+  font-family:
+    "Inter",
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+
+  color: var(--text-primary);
+
   background:
-    radial-gradient(circle at 8% 8%, rgba(96, 165, 250, 0.32), transparent 28%),
-    radial-gradient(circle at 88% 12%, rgba(167, 139, 250, 0.25), transparent 26%),
-    radial-gradient(circle at 72% 86%, rgba(45, 212, 191, 0.20), transparent 30%),
-    linear-gradient(145deg, #f8fbff 0%, #eef6ff 45%, #f4f0ff 100%);
+    radial-gradient(
+      circle at 10% -10%,
+      rgba(37, 99, 235, 0.12),
+      transparent 34%
+    ),
+
+    radial-gradient(
+      circle at 100% 20%,
+      rgba(20, 184, 166, 0.075),
+      transparent 30%
+    ),
+
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(37, 99, 235, 0.045),
+      transparent 35%
+    ),
+
+    linear-gradient(
+      145deg,
+      #050c17 0%,
+      #07111f 48%,
+      #081525 100%
+    );
+
   background-attachment: fixed;
+
+  -webkit-font-smoothing: antialiased;
+
+  text-rendering: optimizeLegibility;
 }
+
+
+/* =========================================================
+   SUBTLE AMBIENT LIGHT
+   ========================================================= */
 
 body::before {
   content: "";
+
   position: fixed;
+
   inset: 0;
+
   pointer-events: none;
-  opacity: .28;
-  background-image: radial-gradient(rgba(37, 99, 235, .18) .7px, transparent .7px);
-  background-size: 24px 24px;
-  mask-image: linear-gradient(to bottom, black, transparent 74%);
+
+  z-index: -1;
+
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(37, 99, 235, 0.045),
+      transparent 38%
+    );
 }
 
-button, input, textarea, select { font: inherit; }
-button { transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
-button:hover { transform: translateY(-1px); filter: brightness(1.02); }
-::selection { background: rgba(96, 165, 250, .32); }
+
+/* =========================================================
+   TYPOGRAPHY
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-primary);
+
+  font-weight: 650;
+
+  letter-spacing: -0.025em;
+}
+
+h1 {
+  line-height: 1.08;
+}
+
+h2 {
+  line-height: 1.15;
+}
+
+h3 {
+  line-height: 1.2;
+}
+
+p {
+  color: var(--text-secondary);
+
+  line-height: 1.65;
+}
+
+small {
+  color: var(--text-muted);
+}
+
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+a {
+  color: inherit;
+
+  text-decoration: none;
+
+  transition:
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+a:hover {
+  color: var(--teal-light);
+}
+
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+
+  color: var(--text-primary);
+
+  background:
+    rgba(3, 11, 23, 0.62);
+
+  border:
+    1px solid var(--border);
+
+  border-radius:
+    var(--radius-md);
+
+  outline: none;
+
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+  border-color:
+    var(--border-hover);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color:
+    rgba(45, 212, 191, 0.48);
+
+  background:
+    rgba(7, 20, 35, 0.82);
+
+  box-shadow:
+    0 0 0 4px rgba(20, 184, 166, 0.07);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color:
+    var(--text-disabled);
+}
+
+
+/* =========================================================
+   SELECT OPTIONS
+   ========================================================= */
+
+select option {
+  color: var(--text-primary);
+
+  background:
+    var(--bg-tertiary);
+}
+
+
+/* =========================================================
+   BUTTON FOUNDATION
+   ========================================================= */
+
+button {
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+button:hover:not(:disabled) {
+  transform:
+    translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform:
+    translateY(0);
+}
+
+button:disabled {
+  cursor:
+    not-allowed;
+
+  opacity:
+    0.5;
+}
+
+
+/* =========================================================
+   PRIMARY BUTTON
+   ========================================================= */
+
+.btn-primary {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    8px;
+
+  min-height:
+    44px;
+
+  padding:
+    0 18px;
+
+  color:
+    #ffffff;
+
+  font-weight:
+    700;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-hover)
+    );
+
+  border:
+    1px solid
+    rgba(96, 165, 250, 0.32);
+
+  border-radius:
+    var(--radius-md);
+
+  box-shadow:
+    0 8px 22px
+    rgba(37, 99, 235, 0.18);
+}
+
+.btn-primary:hover {
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      var(--primary-hover)
+    );
+
+  box-shadow:
+    0 12px 30px
+    rgba(37, 99, 235, 0.26);
+}
+
+
+/* =========================================================
+   TEAL BUTTON
+   ========================================================= */
+
+.btn-teal {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    8px;
+
+  min-height:
+    44px;
+
+  padding:
+    0 18px;
+
+  color:
+    #042f2e;
+
+  font-weight:
+    700;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--teal-light),
+      var(--teal)
+    );
+
+  border:
+    1px solid
+    rgba(94, 234, 212, 0.30);
+
+  border-radius:
+    var(--radius-md);
+
+  box-shadow:
+    0 8px 22px
+    rgba(20, 184, 166, 0.16);
+}
+
+.btn-teal:hover {
+  box-shadow:
+    0 12px 30px
+    rgba(20, 184, 166, 0.24);
+}
+
+
+/* =========================================================
+   SECONDARY BUTTON
+   ========================================================= */
+
+.btn-secondary {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    8px;
+
+  min-height:
+    44px;
+
+  padding:
+    0 18px;
+
+  color:
+    var(--text-primary);
+
+  background:
+    rgba(255, 255, 255, 0.045);
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius:
+    var(--radius-md);
+}
+
+.btn-secondary:hover {
+  background:
+    rgba(255, 255, 255, 0.075);
+
+  border-color:
+    var(--border-hover);
+}
+
+
+/* =========================================================
+   OUTLINE BUTTON
+   ========================================================= */
+
+.btn-outline {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    8px;
+
+  min-height:
+    44px;
+
+  padding:
+    0 18px;
+
+  color:
+    #bfdbfe;
+
+  background:
+    rgba(37, 99, 235, 0.055);
+
+  border:
+    1px solid
+    rgba(96, 165, 250, 0.20);
+
+  border-radius:
+    var(--radius-md);
+}
+
+.btn-outline:hover {
+  color:
+    #ffffff;
+
+  background:
+    rgba(37, 99, 235, 0.11);
+
+  border-color:
+    rgba(96, 165, 250, 0.36);
+}
+
+
+/* =========================================================
+   PREMIUM SURFACE / CARD
+   ========================================================= */
+
+.surface,
+.card {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(16, 34, 56, 0.90),
+      rgba(7, 17, 31, 0.86)
+    );
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius:
+    var(--radius-lg);
+
+  box-shadow:
+    var(--shadow-md);
+
+  backdrop-filter:
+    blur(18px);
+
+  -webkit-backdrop-filter:
+    blur(18px);
+
+  transition:
+    transform var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.surface:hover,
+.card:hover {
+  border-color:
+    var(--border-hover);
+
+  box-shadow:
+    var(--shadow-lg);
+}
+
+
+/* =========================================================
+   SMALL BADGES
+   ========================================================= */
+
+.badge {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  gap:
+    6px;
+
+  width:
+    fit-content;
+
+  padding:
+    5px 10px;
+
+  font-size:
+    12px;
+
+  font-weight:
+    650;
+
+  color:
+    var(--text-secondary);
+
+  background:
+    rgba(255, 255, 255, 0.045);
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius:
+    var(--radius-pill);
+}
+
+.badge-success {
+  color:
+    #86efac;
+
+  background:
+    var(--success-soft);
+
+  border-color:
+    rgba(34, 197, 94, 0.20);
+}
+
+.badge-warning {
+  color:
+    #fde68a;
+
+  background:
+    var(--warning-soft);
+
+  border-color:
+    rgba(245, 158, 11, 0.20);
+}
+
+.badge-danger {
+  color:
+    #fca5a5;
+
+  background:
+    var(--danger-soft);
+
+  border-color:
+    rgba(239, 68, 68, 0.20);
+}
+
+.badge-info {
+  color:
+    #7dd3fc;
+
+  background:
+    var(--info-soft);
+
+  border-color:
+    rgba(56, 189, 248, 0.20);
+}
+
+
+/* =========================================================
+   DIVIDERS
+   ========================================================= */
+
+hr {
+  border:
+    0;
+
+  border-top:
+    1px solid
+    var(--border);
+}
+
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+  color:
+    #ffffff;
+
+  background:
+    rgba(37, 99, 235, 0.75);
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width:
+    8px;
+
+  height:
+    8px;
+}
+
+::-webkit-scrollbar-track {
+  background:
+    transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background:
+    rgba(148, 163, 184, 0.18);
+
+  border-radius:
+    var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background:
+    rgba(20, 184, 166, 0.40);
+}
+
+
+/* =========================================================
+   ACCESSIBILITY
+   ========================================================= */
+
+:focus-visible {
+  outline:
+    2px solid
+    rgba(45, 212, 191, 0.85);
+
+  outline-offset:
+    3px;
+}
+
+
+/* =========================================================
+   IMAGE DEFAULTS
+   ========================================================= */
+
+img {
+  max-width:
+    100%;
+
+  display:
+    block;
+}
+
+
+/* =========================================================
+   RESPONSIVE BASE
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+  body {
+    background-attachment:
+      scroll;
+  }
+
+  .surface,
+  .card {
+    border-radius:
+      var(--radius-md);
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  html {
+    scroll-behavior:
+      auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration:
+      0.01ms !important;
+
+    animation-iteration-count:
+      1 !important;
+
+    transition-duration:
+      0.01ms !important;
+  }
+}

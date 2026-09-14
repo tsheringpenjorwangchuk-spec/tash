@@ -1,142 +1,92 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaArrowLeft,
-  FaBrain,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaMapMarkerAlt,
-  FaCalendarAlt,
-  FaSearch,
-  FaShieldAlt,
-  FaSpinner,
-  FaTimesCircle,
+  FaArrowLeft, FaBrain, FaCheckCircle, FaExclamationTriangle, FaSearch,
+  FaShieldAlt, FaSpinner, FaTimesCircle, FaBoxOpen, FaArrowRight,
+  FaChartLine, FaEquals, FaNotEqual
 } from "react-icons/fa";
-
 import { aiApi } from "../services/aiApi";
-import { readValue } from "../services/store";
+import { getCurrentUserEmail } from "../services/notify";
 import "./AIMatches.css";
 
 function AIMatches() {
   const navigate = useNavigate();
+  const foundItems = useMemo(
+    () => JSON.parse(localStorage.getItem("foundItems") || "[]").filter((item) => item.status === "Available for Matching"),
+    []
+  );
 
-  const currentUser = readValue("currentUser", null);
-  const currentEmail = String(currentUser?.email || "").trim().toLowerCase();
-  const [lostItems, setLostItems] = useState([]);
-  const [foundItems, setFoundItems] = useState([]);
-  const [loadingReports, setLoadingReports] = useState(true);
-  const [selectedLostId, setSelectedLostId] = useState("");
+  const [searchTitle, setSearchTitle] = useState("");
+  const [manualSearch, setManualSearch] = useState("");
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const lostItems = useMemo(() => JSON.parse(localStorage.getItem("lostItems") || "[]"), []);
 
-    async function loadReports() {
-      try {
-        const fetchWithTimeout = async (url) => {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 15000);
-          try {
-            return await fetch(url, { signal: controller.signal });
-          } finally {
-            clearTimeout(timeout);
-          }
-        };
-
-        const [lostResponse, foundResponse] = await Promise.all([
-          fetchWithTimeout("http://localhost:3001/api/lost-items?summary=true"),
-          fetchWithTimeout("http://localhost:3001/api/found-items?summary=true"),
-        ]);
-
-        if (!lostResponse.ok || !foundResponse.ok) {
-          throw new Error("Could not load reports from the database.");
-        }
-
-        const [lostData, foundData] = await Promise.all([
-          lostResponse.json(),
-          foundResponse.json(),
-        ]);
-
-        if (cancelled) return;
-
-        const availableLostItems = lostData
-          .map((item) => ({
-            ...item,
-            dateLost: item.date_lost,
-            imageDataUrl: item.image_data_url,
-            reporterEmail: item.reporter_email,
-          }))
-          .filter((item) =>
-            (!currentEmail || String(item.reporterEmail || "").toLowerCase() === currentEmail) &&
-            !["Resolved", "Claim Approved"].includes(item.status)
-          );
-        setLostItems(availableLostItems);
-        setFoundItems(foundData.filter((item) => item.status === "Available for Matching"));
-        setSelectedLostId((currentId) => currentId || availableLostItems[0]?.id || "");
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError.name === "AbortError"
-            ? "Loading reports timed out. Please check that the backend is running."
-            : loadError.message);
-        }
-      } finally {
-        if (!cancelled) setLoadingReports(false);
-      }
-    }
-
-    loadReports();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentEmail]);
-
-  if (loadingReports) {
-    return <main className="ai-match-page"><div className="ai-match-shell"><p>Loading reports…</p></div></main>;
+  function normaliseWords(value) {
+    return new Set(String(value || "").toLowerCase().match(/[a-z0-9]+/g) || []);
   }
 
-  const selectedLost = lostItems.find(
-    (item) => String(item.id) === String(selectedLostId)
-  );
+  function findPrivateOwnerReport(title, description) {
+    const email = String(getCurrentUserEmail() || "").trim().toLowerCase();
+    const queryWords = normaliseWords(`${title} ${description}`);
+    const candidates = lostItems.filter((item) => {
+      const itemEmail = String(item.reporterEmail || "").trim().toLowerCase();
+      const hasPrivateAnswers = Array.isArray(item.privateOwnerVerification) && item.privateOwnerVerification.length === 3;
+      return hasPrivateAnswers && (!email || !itemEmail || itemEmail === email);
+    });
+
+    let best = null;
+    let bestScore = 0;
+    for (const item of candidates) {
+      const itemWords = normaliseWords(`${item.title || ""} ${item.description || ""}`);
+      if (!queryWords.size || !itemWords.size) continue;
+      let shared = 0;
+      queryWords.forEach((word) => { if (itemWords.has(word)) shared += 1; });
+      const score = shared / Math.max(1, Math.min(queryWords.size, itemWords.size));
+      const exactTitle = String(item.title || "").trim().toLowerCase() === String(title || "").trim().toLowerCase();
+      const weighted = score + (exactTitle ? 0.6 : 0);
+      if (weighted > bestScore) { bestScore = weighted; best = item; }
+    }
+    return bestScore >= 0.35 ? best : null;
+  }
+
+  const canSearch = searchTitle.trim().length >= 3 && manualSearch.trim().length >= 12;
 
   async function runMatching() {
-    if (!selectedLost) {
-      setError("Create or select a lost-item report first.");
+    if (!searchTitle.trim()) {
+      setError("Enter the name or title of the item you are looking for.");
+      return;
+    }
+    if (!manualSearch.trim() || manualSearch.trim().length < 12) {
+      setError("Add a useful description of the item before running AI matching.");
+      return;
+    }
+    if (!foundItems.length) {
+      setError("No office-received items are currently available for matching.");
       return;
     }
 
-    if (!foundItems.length) {
-      setError("No office-received found items are available yet. A found item must be dropped off and marked received by admin before AI matching.");
-      return;
-    }
+    const searchItem = {
+      id: `SEARCH-${Date.now()}`,
+      title: searchTitle.trim(),
+      description: manualSearch.trim(),
+      source: "manual-ai-search",
+    };
 
     setLoading(true);
     setError("");
+    setHasSearched(true);
     setMatches([]);
 
     try {
-      const result = await aiApi.matchItems(
-        selectedLost,
-        foundItems
-      );
-      if (result.fallback) {
-        setError(result.message);
-      }
-
-      const enriched = (result.matches || []).map((match) => ({
-        ...match,
-        candidate: foundItems.find(
-          (item) => String(item.id) === String(match.candidateId)
-        ),
-      }));
-
-      setMatches(enriched);
-
-      localStorage.setItem(
-        `matches:${selectedLost.id}`,
-        JSON.stringify(enriched)
-      );
+      const result = await aiApi.matchItems(searchItem, foundItems, manualSearch.trim());
+      const strongMatches = (result.matches || []).filter((match) => Number(match.score || 0) >= 60);
+      setMatches(strongMatches);
+      localStorage.setItem("latestManualSearch", JSON.stringify(searchItem));
+      localStorage.setItem("latestManualMatches", JSON.stringify(strongMatches));
     } catch (err) {
       setError(err.message || "Unable to run AI matching.");
     } finally {
@@ -144,541 +94,172 @@ function AIMatches() {
     }
   }
 
-  function startClaim(match) {
-    localStorage.setItem(
-      "activeClaim",
-      JSON.stringify({
-        lostItemId: selectedLost.id,
+  async function startClaim(match) {
+    const foundItem = foundItems.find((item) => String(item.id) === String(match.candidateId));
+    if (!foundItem) return;
+
+    const searchItem = {
+      id: `SEARCH-${Date.now()}`,
+      title: searchTitle.trim(),
+      description: manualSearch.trim(),
+      source: "manual-ai-search",
+    };
+
+    try {
+      setLoading(true);
+      // Keep lost reports private: link the manual search to the user's best matching
+      // lost report silently, only so its original private-owner questions can be reused.
+      const linkedLostReport = findPrivateOwnerReport(searchItem.title, searchItem.description);
+
+      // Verification must reuse the private questions answered before a match was shown.
+      if (!linkedLostReport?.privateOwnerVerification?.length || linkedLostReport.privateOwnerVerification.length !== 3) {
+        setError("No matching lost report with private owner questions was found. Please report the lost item first and complete its Private Owner Questions, then search again using a similar title and description.");
+        return;
+      }
+
+      const privateOwnerBaseline = linkedLostReport.privateOwnerVerification.map((entry) => ({
+        question: String(entry.question || "").trim(),
+        answer: String(entry.answer || "").trim(),
+      }));
+      const questions = privateOwnerBaseline.map((entry) => entry.question);
+
+      localStorage.setItem("activeClaim", JSON.stringify({
+        lostItemId: linkedLostReport?.id || searchItem.id,
+        linkedLostItemId: linkedLostReport?.id || null,
         foundItemId: match.candidateId,
         score: match.score,
-        reason: match.reason,
-      })
-    );
-
-    navigate("/verify-claim");
+        searchItem,
+        comparison: {
+          similarities: match.similarities || [],
+          differences: match.differences || [],
+          summary: match.safeSummary || "Potential match found.",
+        },
+        verificationQuestions: questions,
+        privateOwnerBaseline,
+        verificationQuestionSource: "original-private-owner-questions",
+      }));
+      navigate("/verify-claim");
+    } catch (err) {
+      setError(err.message || "Could not prepare ownership verification.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function getScoreClass(score) {
-    if (score >= 80) return "high";
-    if (score >= 60) return "medium";
-    return "low";
-  }
-
-  function getScoreIcon(score) {
-    if (score >= 80) return <FaCheckCircle />;
-    if (score >= 60) return <FaShieldAlt />;
-    return <FaExclamationTriangle />;
+  function scoreClass(score) {
+    return score >= 80 ? "high" : "medium";
   }
 
   return (
     <main className="ai-match-page">
       <div className="ai-match-shell">
-
-        {/* HEADER */}
-        <header className="ai-match-header">
-          <div className="ai-match-title">
-            <div className="ai-icon">
-              <FaBrain />
-            </div>
-
-            <div>
-              <p className="ai-eyebrow">
-                AI POWERED FEATURE
-              </p>
-
-              <h1>AI Item Matching</h1>
-
-              <p className="ai-subtitle">
-                Find potential matches between your lost item
-                and reported found items.
-              </p>
+        <header className="ai-match-hero">
+          <div className="ai-hero-main">
+            <div className="ai-hero-icon"><FaBrain /><span className="ai-pulse-dot" /></div>
+            <div className="ai-hero-copy">
+              <div className="ai-hero-kicker"><span>PRIVATE AI SEARCH</span><span className="ai-status"><i />READY</span></div>
+              <h1>Describe it. Match it. Verify it.</h1>
+              <p>Your search is compared privately against office-received items. The system never shows a browseable list of found property.</p>
             </div>
           </div>
-
-          <button
-            className="back-button"
-            onClick={() => navigate("/dashboard")}
-          >
-            <FaArrowLeft />
-            Dashboard
-          </button>
+          <button className="ai-back-button" onClick={() => navigate("/dashboard")}><FaArrowLeft /><span>Dashboard</span></button>
         </header>
 
-        {/* HOW IT WORKS */}
-        <section className="ai-info-banner">
-          <div className="info-icon">
-            <FaBrain />
-          </div>
-
-          <div>
-            <h3>How AI matching works</h3>
-
-            <p>
-              The system compares item type, category, colour,
-              brand, material, location, date and other available
-              details to identify potential matches.
-            </p>
-          </div>
-        </section>
-
-        {/* CONTROLS */}
-        <section className="match-control-card">
-
-          <div className="section-heading">
-            <span className="section-number">01</span>
-
-            <div>
-              <h2>Select a lost item</h2>
-              <p>
-                Choose the lost report you want to compare.
-              </p>
-            </div>
-          </div>
-
-          <div className="control-row">
-
-            <div className="select-wrapper">
-              <FaSearch />
-
-              <select
-                id="lost-item"
-                value={selectedLostId}
-                onChange={(event) =>
-                  setSelectedLostId(event.target.value)
-                }
-              >
-                {!lostItems.length && (
-                  <option value="">
-                    No lost reports available
-                  </option>
-                )}
-
-                {lostItems.map((item) => (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                  >
-                    {item.title}
-                  </option>
-                ))}
-              </select>
+        <section className="matching-workspace">
+          <aside className="matching-control-panel">
+            <div className="panel-heading">
+              <span className="panel-kicker">YOUR SEARCH</span>
+              <h2>What did you lose?</h2>
+              <p>Enter the item yourself. Found-item records stay hidden until a strong match is detected.</p>
             </div>
 
-            <button
-              className="run-match-button"
-              onClick={runMatching}
-              disabled={loading || !selectedLost}
-            >
-              {loading ? (
-                <>
-                  <FaSpinner className="spinner" />
-                  Comparing...
-                </>
-              ) : (
-                <>
-                  <FaBrain />
-                  Find AI Matches
-                </>
-              )}
+            <div className="report-selector">
+              <label htmlFor="search-title"><FaSearch /> Item title <span aria-hidden="true" style={{color:"#ef4444"}}>*</span></label>
+              <div className="select-control">
+                <input
+                  id="search-title"
+                  value={searchTitle}
+                  onChange={(e) => setSearchTitle(e.target.value)}
+                  placeholder="e.g. Louis Vuitton black sunglasses"
+                  autoComplete="off"
+                  style={{width:"100%", padding:12, border:0, outline:0, background:"transparent", color:"inherit"}}
+                />
+              </div>
+            </div>
+
+            <div className="report-selector" style={{marginTop:18}}>
+              <label htmlFor="manual-search"><FaSearch /> Description <span aria-hidden="true" style={{color:"#ef4444"}}>*</span></label>
+              <div className="select-control">
+                <textarea
+                  id="manual-search"
+                  value={manualSearch}
+                  onChange={(e) => setManualSearch(e.target.value)}
+                  placeholder="Describe colour, brand, material, shape, accessories, marks or damage you remember..."
+                  required rows={5}
+                  style={{width:"100%", resize:"vertical", padding:12, border:0, outline:0, background:"transparent", color:"inherit"}}
+                />
+              </div>
+              <p style={{marginTop:8,fontSize:13}}>Required. Add details you genuinely remember; they are used to calculate the match.</p>
+            </div>
+
+            <button className="run-match-button" onClick={runMatching} disabled={loading || !canSearch}>
+              {loading ? <><FaSpinner className="spinner" />Checking securely</> : <><FaBrain />Find AI Matches<FaArrowRight /></>}
             </button>
 
-          </div>
-
-          {selectedLost && (
-            <div className="selected-item-preview">
-              <div>
-                <span>Selected lost item</span>
-                <strong>{selectedLost.title}</strong>
-              </div>
-
-              {selectedLost.category && (
-                <div>
-                  <span>Category</span>
-                  <strong>{selectedLost.category}</strong>
-                </div>
-              )}
-
-              {selectedLost.location && (
-                <div>
-                  <span>Location</span>
-                  <strong>{selectedLost.location}</strong>
-                </div>
-              )}
+            <div className="matching-method">
+              <div className="method-icon"><FaShieldAlt /></div>
+              <div><strong>Private by design</strong><p>No category list, location list, or catalogue of found items is exposed during search.</p></div>
             </div>
-          )}
+          </aside>
 
+          <div className="matching-overview">
+            <div className="overview-heading"><div><span className="panel-kicker">HOW IT WORKS</span><h2>Secure matching workspace</h2></div><div className="overview-status"><span />Ready</div></div>
+            <div className="overview-explanation">
+              <div className="explanation-icon"><FaChartLine /></div>
+              <div><strong>Title + description are both checked</strong><p>AI compares your words with protected records and only returns candidates scoring 60% or higher.</p></div>
+            </div>
+            <div className="overview-explanation" style={{marginTop:16}}>
+              <div className="explanation-icon"><FaShieldAlt /></div>
+              <div><strong>No found-item browsing</strong><p>Users cannot view the available inventory, locations, categories, or exact identifying details before matching.</p></div>
+            </div>
+          </div>
         </section>
 
-        {/* STATISTICS */}
-        <section className="match-statistics">
+        {error && <div className="match-error"><span className="error-icon"><FaTimesCircle /></span><div><strong>Unable to complete matching</strong><p>{error}</p></div></div>}
 
-          <div className="stat-card">
-            <div className="stat-icon lost">
-              <FaSearch />
-            </div>
+        {loading && <section className="loading-state"><div className="loading-orbit"><FaBrain /></div><div className="loading-copy"><span className="panel-kicker">AI ANALYSIS IN PROGRESS</span><h2>Comparing your description privately</h2><p>Only strong candidates will be returned.</p></div><div className="loading-track"><div /></div></section>}
 
-            <div>
-              <strong>{lostItems.length}</strong>
-              <span>Lost Reports</span>
-            </div>
-          </div>
+        {!hasSearched && !loading && !error && <section className="empty-match-state"><div className="empty-state-visual"><FaSearch /></div><div className="empty-state-copy"><span className="panel-kicker">START WITH WHAT YOU REMEMBER</span><h2>No catalogue to browse</h2><p>Enter the item title and a detailed description. Matching happens against protected office records in the background.</p></div></section>}
 
-          <div className="stat-card">
-            <div className="stat-icon found">
-              <FaCheckCircle />
-            </div>
+        {hasSearched && !matches.length && !loading && !error && <section className="empty-match-state"><div className="empty-state-visual"><FaShieldAlt /></div><div className="empty-state-copy"><span className="panel-kicker">NO STRONG MATCH FOUND</span><h2>No result reached 60%</h2><p>Try adding more specific details such as colour, brand, material, accessories, damage, markings or a distinctive feature.</p></div></section>}
 
-            <div>
-              <strong>{foundItems.length}</strong>
-              <span>Office-Received Found Items</span>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon matches">
-              <FaBrain />
-            </div>
-
-            <div>
-              <strong>{matches.length}</strong>
-              <span>AI Matches</span>
-            </div>
-          </div>
-
-        </section>
-
-        {/* ERROR */}
-        {error && (
-          <div className="match-error">
-            <FaTimesCircle />
-
-            <div>
-              <strong>Unable to complete matching</strong>
-              <p>{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* LOADING */}
-        {loading && (
-          <section className="loading-card">
-
-            <div className="loading-animation">
-              <FaBrain />
-            </div>
-
-            <h2>AI is comparing the reports...</h2>
-
-            <p>
-              Checking item details, similarities,
-              locations and dates.
-            </p>
-
-            <div className="loading-bar">
-              <div></div>
-            </div>
-
-          </section>
-        )}
-
-        {/* EMPTY STATE */}
-        {!matches.length && !loading && !error && (
-          <section className="empty-match-state">
-
-            <div className="empty-ai-icon">
-              <FaBrain />
-            </div>
-
-            <h2>Ready to find a potential match?</h2>
-
-            <p>
-              Select one of your lost reports above and
-              click <strong>Find AI Matches</strong>.
-            </p>
-
-            <div className="empty-tips">
-
-              <div>
-                <FaCheckCircle />
-                <span>Compare item characteristics</span>
-              </div>
-
-              <div>
-                <FaCheckCircle />
-                <span>Analyse locations and dates</span>
-              </div>
-
-              <div>
-                <FaCheckCircle />
-                <span>Identify potential matches</span>
-              </div>
-
-            </div>
-
-          </section>
-        )}
-
-        {/* RESULTS */}
         {matches.length > 0 && !loading && (
           <section className="results-section">
-
-            <div className="results-header">
-              <div>
-                <p className="results-eyebrow">
-                  AI ANALYSIS COMPLETE
-                </p>
-
-                <h2>Potential Matches</h2>
-
-                <p>
-                  The results below are potential matches only.
-                  Ownership must still be verified.
-                </p>
-              </div>
-
-              <div className="results-count">
-                {matches.length}
-                <span>matches</span>
-              </div>
-            </div>
-
+            <div className="results-header"><div><span className="panel-kicker">MATCHING COMPLETE</span><h2>Potential matches</h2><p>Only results at 60% or above are shown. Review the image and comparison, then verify ownership.</p></div><div className="results-count"><strong>{matches.length}</strong><span>strong results</span></div></div>
             <div className="match-list">
-
-              {matches.map((match, index) => {
-                const scoreClass = getScoreClass(match.score);
-
-                return (
-                  <article
-                    className={`match-card ${scoreClass}`}
-                    key={`${match.candidateId}-${index}`}
-                  >
-
-                    {/* IMAGE */}
-                    <div className="match-image-wrapper">
-
-                      {match.candidate?.hasImage ? (
-                        <img
-                          src={`http://localhost:3001/api/found-items/${match.candidate.id}/image`}
-                          alt={
-                            match.candidate.title ||
-                            "Found item"
-                          }
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="image-placeholder">
-                          <FaBoxIcon />
-                        </div>
-                      )}
-
-                      <div className="match-rank">
-                        #{index + 1}
-                      </div>
-
+              {matches.map((match,index) => {
+                const found = foundItems.find((item) => String(item.id) === String(match.candidateId));
+                const cls = scoreClass(match.score);
+                return <article className={`match-card ${cls}`} key={`${match.candidateId}-${index}`}>
+                  <div className="match-image-column"><div className="match-image-wrapper">{found?.imageDataUrl ? <img src={found.imageDataUrl} alt={`Potential match ${index+1}`} /> : <div className="image-placeholder"><FaBoxOpen /></div>}<span className="matched-image-badge">POTENTIAL MATCH</span></div></div>
+                  <div className="match-content">
+                    <div className="match-content-header"><div><span className="match-result-label">RESULT #{index+1}</span><h3>Potential matching item</h3></div><div className={`match-score ${cls}`}><div><strong>{match.score}%</strong><span>{match.confidence || "medium"} confidence</span></div></div></div>
+                    <div className="ai-reason"><div className="reason-heading"><span><FaBrain /></span><div><small>AI COMPARISON</small><strong>{match.safeSummary || "The title and description are consistent with this record."}</strong></div></div></div>
+                    <div className="verified-comparison-grid" style={{marginTop:16}}>
+                      <div className="verified-comparison-card similarities"><div className="verified-comparison-title"><FaEquals/><strong>Similarities</strong></div>{match.similarities?.length ? <ul>{match.similarities.map((x,i)=><li key={i}><FaCheckCircle/>{x}</li>)}</ul> : <p>Strong overall description similarity.</p>}</div>
+                      <div className="verified-comparison-card differences"><div className="verified-comparison-title"><FaNotEqual/><strong>Differences</strong></div>{match.differences?.length ? <ul>{match.differences.map((x,i)=><li key={i}><FaExclamationTriangle/>{x}</li>)}</ul> : <p>No important non-sensitive differences identified.</p>}</div>
                     </div>
-
-                    {/* CONTENT */}
-                    <div className="match-content">
-
-                      <div className="match-top">
-
-                        <div>
-                          <p className="found-label">
-                            FOUND ITEM
-                          </p>
-
-                          <h3>
-                            {match.candidate?.title ||
-                              "Found item"}
-                          </h3>
-                        </div>
-
-                        <div
-                          className={`match-score ${scoreClass}`}
-                        >
-                          <div className="score-icon">
-                            {getScoreIcon(match.score)}
-                          </div>
-
-                          <div>
-                            <strong>
-                              {match.score}%
-                            </strong>
-
-                            <span>
-                              {match.confidence || "unknown"} confidence
-                            </span>
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* LOCATION / DATE */}
-                      <div className="match-meta">
-
-                        <div>
-                          <FaMapMarkerAlt />
-
-                          <span>
-                            {match.candidate?.location ||
-                              "Unknown location"}
-                          </span>
-                        </div>
-
-                        <div>
-                          <FaCalendarAlt />
-
-                          <span>
-                            {match.candidate?.dateFound ||
-                              "Unknown date"}
-                          </span>
-                        </div>
-
-                      </div>
-
-                      {/* REASON */}
-                      <div className="ai-reason">
-
-                        <div className="reason-heading">
-                          <FaBrain />
-                          <strong>Why AI thinks this may match</strong>
-                        </div>
-
-                        <p>
-                          {match.reason ||
-                            "The AI identified similarities between the reports."}
-                        </p>
-
-                      </div>
-
-                      {/* FEATURES */}
-                      <div className="feature-grid">
-
-                        <div className="feature-box matching">
-
-                          <h4>
-                            <FaCheckCircle />
-                            Matching Features
-                          </h4>
-
-                          {match.matchingFeatures?.length ? (
-                            <ul>
-                              {match.matchingFeatures.map(
-                                (feature, featureIndex) => (
-                                  <li key={featureIndex}>
-                                    {feature}
-                                  </li>
-                                )
-                              )}
-                            </ul>
-                          ) : (
-                            <p className="no-features">
-                              No specific features identified.
-                            </p>
-                          )}
-
-                        </div>
-
-                        <div className="feature-box differences">
-
-                          <h4>
-                            <FaExclamationTriangle />
-                            Differences
-                          </h4>
-
-                          {match.differences?.length ? (
-                            <ul>
-                              {match.differences.map(
-                                (difference, differenceIndex) => (
-                                  <li key={differenceIndex}>
-                                    {difference}
-                                  </li>
-                                )
-                              )}
-                            </ul>
-                          ) : (
-                            <p className="no-features">
-                              No major differences identified.
-                            </p>
-                          )}
-
-                        </div>
-
-                      </div>
-
-                      {/* ACTION */}
-                      <div className="match-action">
-
-                        {match.score >= 60 ? (
-                          <>
-                            <div className="verification-note">
-                              <FaShieldAlt />
-
-                              <span>
-                                This match is eligible for
-                                ownership verification.
-                              </span>
-                            </div>
-
-                            <button
-                              className="claim-button"
-                              onClick={() =>
-                                startClaim(match)
-                              }
-                            >
-                              <FaShieldAlt />
-                              Start Ownership Verification
-                            </button>
-                          </>
-                        ) : (
-                          <div className="low-match-note">
-                            <FaExclamationTriangle />
-
-                            <span>
-                              Match confidence is below 60%.
-                              Ownership verification is not
-                              available for this result.
-                            </span>
-                          </div>
-                        )}
-
-                      </div>
-
-                    </div>
-
-                  </article>
-                );
+                    <div className="match-action"><div className="verification-note"><FaShieldAlt/><span>Ownership questions use protected details that a genuine owner should know.</span></div><button className="claim-button" onClick={()=>startClaim(match)}><span><FaShieldAlt/></span>Verify Ownership<FaArrowRight/></button></div>
+                  </div>
+                </article>;
               })}
-
             </div>
-
           </section>
         )}
 
-        {/* FOOTER NOTE */}
-        <footer className="ai-disclaimer">
-          <FaShieldAlt />
-
-          <span>
-            AI results are suggestions only. A potential match
-            does not confirm ownership. Final ownership must be
-            verified through the Lost & Found process.
-          </span>
-        </footer>
-
+        <footer className="ai-disclaimer"><span><FaShieldAlt /></span><p><strong>Privacy-first matching.</strong> The search does not reveal the full found-item inventory, exact locations, dates, or protected identifying details.</p></footer>
       </div>
     </main>
-  );
-}
-
-/*
-  Small icon component used for the image placeholder.
-*/
-function FaBoxIcon() {
-  return (
-    <span className="box-placeholder">
-      📦
-    </span>
   );
 }
 

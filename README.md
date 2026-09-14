@@ -1,6 +1,6 @@
-# Lost & Found Management System — Neon Database Integration
+# Lost & Found Management System — Complete Workflow — Database-Ready Demo
 
-This build uses Neon PostgreSQL for user registration and lost-item report persistence. Browser localStorage remains a local workflow cache for the existing matching and claims screens.
+This build contains the complete application flow except the real MongoDB persistence layer. It is ready to demonstrate now using browser localStorage, while the database teammate can integrate MongoDB later.
 
 ## Included features
 
@@ -23,7 +23,7 @@ This build uses Neon PostgreSQL for user registration and lost-item report persi
 - Lost/found report management
 - Admin users page
 - Responsive improved user and admin dashboards
-- Neon PostgreSQL schema and API integration
+- MongoDB schema and API handoff document
 
 ## Run the frontend
 
@@ -60,8 +60,6 @@ Copy `.env.example` to `.env` and add your own key. The server accepts `.env` ei
 OPENAI_API_KEY=your_key_here
 OPENAI_MODEL=gpt-4.1-mini
 PORT=3001
-DATABASE_URL=postgresql://username:password@host:5432/database
-DATABASE_SSL=true
 ```
 
 Never share or commit the real key.
@@ -127,21 +125,21 @@ account) so the system knows who to notify.
 
 ## Database status
 
-Neon PostgreSQL now persists user registrations and lost-item reports. The remaining workflow data is stored in browser localStorage through `src/services/store.js` and existing page storage calls. The Neon schema and REST endpoint plan are documented at:
+MongoDB is intentionally not included yet. All demo data is stored in browser localStorage through `src/services/store.js` and existing page storage calls. The exact MongoDB collection designs, REST endpoint plan, security requirements, and integration steps are documented at:
 
-`server/database/NEON_INTEGRATION.md`
+`server/database/MONGODB_INTEGRATION.md`
 
 The final intended architecture is:
 
 ```text
 React frontend
       ↓
-Node REST API
+Node/Express REST API
    ↙       ↘
-Neon PostgreSQL    OpenAI API
+MongoDB    OpenAI API
 ```
 
-Do not treat localStorage as production persistence. It is only the temporary workflow cache for data that has not yet been moved to Neon.
+Do not treat localStorage as production persistence. It is only the temporary demonstration layer until MongoDB is integrated.
 
 ## Demo verification and collection-code flow
 
@@ -176,7 +174,7 @@ A found item is not eligible for AI matching immediately after a finder reports 
 7. After ownership verification and admin claim approval, a collection code is issued to the owner.
 8. Admin checks the code during collection and marks the item **Collected**.
 
-When the remaining workflow is integrated with Neon, the same fields should be persisted: `dropoffReference`, `status`, `receivedAt`, `receivedBy`, and the existing claim/collection fields.
+When MongoDB is integrated, the same fields should be persisted: `dropoffReference`, `status`, `receivedAt`, `receivedBy`, and the existing claim/collection fields.
 
 ## Final UI clarity pass
 A final global clarity layer is applied from `src/styles/final-clarity.css` so all user/admin pages use high-contrast dark text on white/light cards, consistent blue/purple actions, readable form controls, and clear status panels. This styling layer is intentionally imported after page styles to prevent legacy dark-theme rules from causing white-on-white text.
@@ -185,10 +183,22 @@ A final global clarity layer is applied from `src/styles/final-clarity.css` so a
 The app now imports `src/styles/hard-clear.css` last from `src/main.jsx`. This is intentional: it overrides older glass/dark page styles with solid, readable surfaces across every route. Navigation uses a solid navy background with white labels; page cards are white; headings and form text are dark navy; input fields have visible white backgrounds and borders.
 
 ## Final attractive UI build
-This build uses a solid high-contrast visual system: navy navigation, white cards, dark text, bold blue/purple/green/red buttons, emoji cues, clear form controls and status badges. Neon persistence is used for users and lost-item reports; localStorage remains the temporary cache for the remaining workflow screens.
+This build uses a solid high-contrast visual system: navy navigation, white cards, dark text, bold blue/purple/green/red buttons, emoji cues, clear form controls and status badges. The workflow remains no-database/localStorage so MongoDB can be integrated later through the existing server adapter boundary.
 
 ## Final light UI build
 This package includes `src/styles/light-final.css`, loaded last to keep every screen light, readable and consistent. The app uses white/pastel cards, dark text, light navigation, and restrained solid action buttons.
 
 ## Final visual redesign
 The final UI layer is `src/styles/polished-ui.css`. It is imported last and intentionally overrides legacy page styles. The redesign uses white/pastel surfaces, dark navy text, subtle borders and shadows, compact pill navigation, restrained accent colours, and responsive layouts across all user/admin/AI/claim pages.
+
+
+## v10 updates
+
+- Report Lost Item now has two separate verification sections: **Item verification** (physical/detail evidence) and **Private owner knowledge** (history/details only a genuine owner should know).
+- The visual layer has been returned to the original project's blue/teal style by using the original `fresh-ui.css` and `polished-ui.css` global layers.
+- PostgreSQL-ready backend added under `server/database/` with schema, connection adapter and REST endpoints for lost items, found items and claims.
+- Set `DATABASE_URL` and run `server/database/schema.sql` when the PostgreSQL database is available. The current localStorage prototype remains enabled by default so development can continue without the database.
+
+## v11 — Linked private-owner verification
+
+The ownership-verification flow now reuses the three **Private Owner Questions** originally answered when the user reported the item lost. The AI Matching page remains manual/private and does not expose the user's lost-report list. When the manual title/description corresponds to one of the user's lost reports, the claim silently links to that report and asks the same three owner-only questions again. The new answers are compared primarily with the original private answers, with the found-item record used only as supporting evidence. Admin review shows the original private answer, the later verification answer, and the consistency decision before approval and code issue.

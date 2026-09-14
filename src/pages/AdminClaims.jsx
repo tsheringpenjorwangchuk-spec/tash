@@ -177,7 +177,7 @@ function AdminClaims() {
                     <div className="claim-card-top">
                       <div>
                         <span className="claim-ref">{claim.id}</span>
-                        <h2>{lost?.title || "Lost item"} ↔ {found?.title || "Found item"}</h2>
+                        <h2>{lost?.title || claim.searchItem?.title || "Lost item"} ↔ {found?.title || "Found item"}</h2>
                         <p>{claim.reason || "AI identified this as a potential match."}</p>
                       </div>
                       <span className={`claim-status ${claim.status.toLowerCase().replace(/\s+/g, "-")}`}>
@@ -187,9 +187,75 @@ function AdminClaims() {
 
                     <div className="claim-meta-grid">
                       <div><span>AI match</span><strong>{claim.score ?? "—"}%</strong></div>
-                      <div><span>Private questions</span><strong>{claim.correctAnswers}/{claim.totalQuestions} correct</strong></div>
-                      <div><span>Submitted</span><strong>{new Date(claim.submittedAt).toLocaleString()}</strong></div>
+                      <div><span>Private questions</span><strong>{claim.correctAnswers ?? "—"}/{claim.totalQuestions ?? "—"} correct</strong></div>
+                      <div><span>Submitted</span><strong>{claim.submittedAt ? new Date(claim.submittedAt).toLocaleString() : "—"}</strong></div>
                     </div>
+
+                    <section className="admin-evidence-panel">
+                      <div className="admin-evidence-header">
+                        <div>
+                          <span className="admin-evidence-kicker">VERIFICATION EVIDENCE</span>
+                          <h3>Review before approval</h3>
+                          <p>Check the AI comparison and the claimant's private ownership answers before issuing a collection code.</p>
+                        </div>
+                        <span className={`evidence-verdict ${claim.verificationPassed ? "passed" : "pending"}`}>
+                          {claim.verificationPassed ? <><FaCheckCircle /> Ownership check passed</> : <><FaClock /> Review required</>}
+                        </span>
+                      </div>
+
+                      <div className="admin-match-evidence">
+                        <div className="admin-match-photo">
+                          {found?.imageDataUrl ? <img src={found.imageDataUrl} alt="Matched found item" /> : <div className="admin-photo-placeholder"><FaBoxOpen /></div>}
+                          <span>Matched office item</span>
+                        </div>
+                        <div className="admin-match-summary">
+                          <div className="admin-score-row"><span>AI match score</span><strong>{claim.score ?? "—"}%</strong></div>
+                          <p>{claim.comparison?.summary || claim.reason || "AI identified this record as a potential match."}</p>
+                        </div>
+                      </div>
+
+                      <div className="admin-comparison-grid">
+                        <div className="admin-comparison-card good">
+                          <h4><FaCheckCircle /> Similarities</h4>
+                          {claim.comparison?.similarities?.length ? (
+                            <ul>{claim.comparison.similarities.map((item, index) => <li key={`sim-${index}`}>{item}</li>)}</ul>
+                          ) : <p>No stored similarity details are available for this older claim.</p>}
+                        </div>
+                        <div className="admin-comparison-card caution">
+                          <h4><FaTimesCircle /> Differences</h4>
+                          {claim.comparison?.differences?.length ? (
+                            <ul>{claim.comparison.differences.map((item, index) => <li key={`diff-${index}`}>{item}</li>)}</ul>
+                          ) : <p>No important differences were recorded.</p>}
+                        </div>
+                      </div>
+
+                      <div className="admin-qa-section">
+                        <div className="admin-qa-heading">
+                          <div><FaShieldAlt /><span>Ownership question review</span></div>
+                          <strong>{claim.correctAnswers ?? "—"}/{claim.totalQuestions ?? "—"} consistent</strong>
+                        </div>
+                        {Array.isArray(claim.verificationEvidence) && claim.verificationEvidence.length ? (
+                          <div className="admin-qa-list">
+                            {claim.verificationEvidence.map((entry, index) => (
+                              <article className="admin-qa-card" key={`${claim.id}-qa-${index}`}>
+                                <div className="admin-qa-number">{index + 1}</div>
+                                <div className="admin-qa-content">
+                                  <h4>{entry.question}</h4>
+                                  {entry.referenceAnswer && <div className="admin-answer-box"><span>Original private answer from lost report</span><p>{entry.referenceAnswer}</p></div>}
+                                  <div className="admin-answer-box"><span>Ownership verification answer</span><p>{entry.answer || "No answer recorded"}</p></div>
+                                  <div className={`admin-answer-result ${entry.consistent ? "consistent" : "review"}`}>
+                                    {entry.consistent ? <FaCheckCircle /> : <FaTimesCircle />}
+                                    <span>{entry.feedback || (entry.consistent ? "Consistent with protected record." : "Requires admin review.")}</span>
+                                  </div>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="admin-evidence-empty">Detailed question answers were not stored for this older claim. New claims will show all three questions and claimant answers here.</p>
+                        )}
+                      </div>
+                    </section>
 
                     {claim.status === "Pending Admin Review" && (
                       <div className="admin-review-panel">
