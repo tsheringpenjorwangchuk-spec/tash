@@ -1,6 +1,21 @@
-# Lost & Found Management System — Neon Database Integration
+# Lost & Found Management System
 
-This build uses Neon PostgreSQL for user registration and lost-item report persistence. Browser localStorage remains a local workflow cache for the existing matching and claims screens.
+A web application that helps an organization (e.g. a school or office) manage lost and found items end-to-end — from the moment someone reports a lost or found item, through AI-assisted matching, ownership verification, and final collection.
+
+## What this project does (overview)
+
+- **Report** — Users can report an item they've lost or an item they've found, including a photo.
+- **AI analysis** — OpenAI automatically analyzes the uploaded photo to describe the item and generate a few private ownership questions (e.g. colour, item type, brand) used later to confirm the real owner.
+- **Matching** — Once a found item is physically dropped off and logged by an admin, the system runs AI matching against open lost reports and scores likely matches.
+- **Verification & claims** — The person claiming an item must correctly answer at least 2 of the 3 ownership questions before the claim goes to an admin for review.
+- **Admin approval & collection code** — An admin reviews the claim, approves it, and the system generates a unique 6-character collection code plus a pickup location.
+- **Handover** — The admin verifies the code in person and marks the item collected, closing out both the claim and the original lost report.
+- **Notifications** — Email notifications are sent automatically at key steps (a likely match is found, a claim is approved/rejected/collected), so users don't need to keep checking the site.
+- **Admin dashboard** — Admins can manage all reports, claims, and users from a dedicated dashboard.
+
+In short: it replaces an informal/manual lost-and-found process with a tracked, verifiable digital workflow, using AI to speed up matching and reduce false claims.
+
+**Live repository:** https://github.com/tsheringpenjorwangchuk-spec/tash
 
 ## Included features
 
@@ -153,14 +168,9 @@ Do not treat localStorage as production persistence. It is only the temporary wo
 - At handover, the administrator re-enters the user's code before marking the item **Collected**.
 
 
-## Visual redesign
-
-This build uses a new midnight-violet and coral interface rather than the previous green glass theme. Claim, verification and collection screens use clearer solid cards, stronger status contrast, and a more presentation-friendly workflow.
-
 ## Important collection-code rule
 
 A collection code must never exist on a Pending claim. The admin approval action creates the six-character code, stores it with the claim, marks the found item as Reserved for Collection, and changes the claim to Ready for Collection. Older demo claims that were already approved without a code are repaired when the admin claim desk is opened.
-
 
 Ownership verification rule: exactly 3 simple questions are stored (main colour, item type, brand/none), and at least 2 of the 3 must match before the claim can be submitted for admin review.
 
@@ -178,17 +188,6 @@ A found item is not eligible for AI matching immediately after a finder reports 
 
 When the remaining workflow is integrated with Neon, the same fields should be persisted: `dropoffReference`, `status`, `receivedAt`, `receivedBy`, and the existing claim/collection fields.
 
-## Final UI clarity pass
-A final global clarity layer is applied from `src/styles/final-clarity.css` so all user/admin pages use high-contrast dark text on white/light cards, consistent blue/purple actions, readable form controls, and clear status panels. This styling layer is intentionally imported after page styles to prevent legacy dark-theme rules from causing white-on-white text.
+## Design & UI
 
-## High-contrast UI update
-The app now imports `src/styles/hard-clear.css` last from `src/main.jsx`. This is intentional: it overrides older glass/dark page styles with solid, readable surfaces across every route. Navigation uses a solid navy background with white labels; page cards are white; headings and form text are dark navy; input fields have visible white backgrounds and borders.
-
-## Final attractive UI build
-This build uses a solid high-contrast visual system: navy navigation, white cards, dark text, bold blue/purple/green/red buttons, emoji cues, clear form controls and status badges. Neon persistence is used for users and lost-item reports; localStorage remains the temporary cache for the remaining workflow screens.
-
-## Final light UI build
-This package includes `src/styles/light-final.css`, loaded last to keep every screen light, readable and consistent. The app uses white/pastel cards, dark text, light navigation, and restrained solid action buttons.
-
-## Final visual redesign
-The final UI layer is `src/styles/polished-ui.css`. It is imported last and intentionally overrides legacy page styles. The redesign uses white/pastel surfaces, dark navy text, subtle borders and shadows, compact pill navigation, restrained accent colours, and responsive layouts across all user/admin/AI/claim pages.
+The interface went through several iterations during development; the current design (`src/styles/polished-ui.css`, loaded last from `src/main.jsx`) is the one that applies. It uses white/pastel surfaces, dark navy text, subtle borders and shadows, compact pill navigation, restrained accent colours, and responsive layouts across all user/admin/AI/claim pages — prioritizing readability and contrast over the earlier dark/glass theme.
